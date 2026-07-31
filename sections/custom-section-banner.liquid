@@ -1,56 +1,155 @@
-{% style %}
-  .custom-banner-bg{
-    {% if section.settings.background_img_desktop != blank %}
-        background-image: url({{ section.settings.background_img_desktop | img_url: 'master' }}) !important;
-    {% endif %}
-  }
-  .section-{{ section.id }}-padding {
-      padding-top: {{ section.settings.padding_top }}px;
-      padding-bottom: {{ section.settings.padding_bottom }}px;
-  }
-  @media only screen and (max-width: 767px) {
-    .section-{{ section.id }}-padding {
-        padding-top: {{ section.settings.padding_top | times: 0.75 | round: 0 }}px;
-        padding-bottom: {{ section.settings.padding_bottom | times: 0.75 | round: 0 }}px;
-    }
-    .custom-banner-bg{
-        {% if section.settings.background_img_mob != blank %}
-            background-image: url({{ section.settings.background_img_mob | img_url: 'master' }}) !important;
-        {% else %}
-            background-image: url({{ section.settings.background_img_desktop | img_url: 'master' }}) !important;
-        {% endif %}
-    }
-  }
-{% endstyle %}
+{%- liquid
+  assign banner_image = section.settings.background_img_desktop
+  assign banner_image_mobile = section.settings.background_img_mob
+  assign fetch_priority = 'auto'
+  if section.index == 1
+    assign fetch_priority = 'high'
+  endif
 
-<section id="custom-banner" class="color-{{ section.settings.color_scheme }} custom-banner-bg">
-  <div class="page-width">
-      <div class="banner-content section-{{ section.id }}-padding">
-            {%- if section.setting.sub-heading -%}
-                <h5 class="banner-subheaidng">{{ section.settings.sub-heading }}</h5>
-            {%- endif -%}
-            {%- if section.settings.heading != blank -%}
-                <h1>{{ section.settings.heading }}</h1>
-            {%- endif -%}
-            {%- if section.settings.desc != blank -%}
-                <div class="banner-desc">{{ section.settings.desc }}</div>
-            {%- endif -%}
+  assign focal_point = '72% 50%'
+  if banner_image != blank and banner_image.presentation.focal_point != blank
+    assign focal_point = banner_image.presentation.focal_point
+  endif
 
-            {%- if section.settings.btn_text != blank -%}
-                <div class="banner-button-wrap banner-button-wrap--desktop">
-                {%- if section.settings.btn_text != blank -%}
-                    <a
-                    href="{% if section.settings.btn_link != blank %}{{ section.settings.btn_link }}{% else %}#{% endif %}"
-                    class="button button--primary banner-cta"
-                    >
-                    {{ section.settings.btn_text | escape }}
-                    </a>
-                {%- endif -%}
-                </div>
-            {%- endif -%}
+  assign focal_point_mobile = focal_point
+  if banner_image_mobile != blank and banner_image_mobile.presentation.focal_point != blank
+    assign focal_point_mobile = banner_image_mobile.presentation.focal_point
+  elsif section.settings.mobile_focal_point != 'auto'
+    case section.settings.mobile_focal_point
+      when 'left'
+        assign focal_point_mobile = '20% 50%'
+      when 'center'
+        assign focal_point_mobile = '50% 50%'
+      when 'right'
+        assign focal_point_mobile = '80% 50%'
+      when 'product'
+        assign focal_point_mobile = '78% 55%'
+    endcase
+  endif
+
+  assign widths = '375, 550, 750, 1100, 1500, 1780, 2000, 2400, 3000, 3840'
+  assign banner_alt = section.settings.heading | default: section.settings.sub-heading | default: shop.name
+  if banner_image != blank and banner_image.alt != blank
+    assign banner_alt = banner_image.alt
+  endif
+  assign overlay_color = section.settings.overlay_color | default: '#000000'
+  assign overlay_opacity = section.settings.overlay_opacity | default: 30 | divided_by: 100.0
+-%}
+
+{%- style -%}
+  #CustomBanner-{{ section.id }} {
+    --banner-ar-desktop: {{ section.settings.aspect_ratio_desktop }};
+    --banner-ar-tablet: {{ section.settings.aspect_ratio_tablet }};
+    --banner-ar-mobile: {{ section.settings.aspect_ratio_mobile }};
+    --banner-title-size-desktop: {{ section.settings.title_size_desktop }}px;
+    --banner-title-size-tablet: {{ section.settings.title_size_tablet }}px;
+    --banner-title-size-mobile: {{ section.settings.title_size_mobile }}px;
+    --banner-desc-size-desktop: {{ section.settings.desc_size_desktop }}px;
+    --banner-desc-size-tablet: {{ section.settings.desc_size_tablet }}px;
+    --banner-desc-size-mobile: {{ section.settings.desc_size_mobile }}px;
+    --banner-eyebrow-color: {{ section.settings.eyebrow_color }};
+    --banner-title-color: {{ section.settings.title_color }};
+    --banner-desc-color: {{ section.settings.desc_color }};
+    --banner-btn-bg: {{ section.settings.button_bg }};
+    --banner-btn-text: {{ section.settings.button_text_color }};
+    --banner-link-color: {{ section.settings.link_color }};
+    --banner-content-max: {{ section.settings.content_max_width }}px;
+    --banner-pad-top: {{ section.settings.padding_top }}px;
+    --banner-pad-bottom: {{ section.settings.padding_bottom }}px;
+    --banner-focal-point: {{ focal_point }};
+    --banner-focal-point-mobile: {{ focal_point_mobile }};
+    --banner-overlay-bg: {{ overlay_color }};
+    --banner-overlay-opacity: {{ overlay_opacity }};
+  }
+{%- endstyle -%}
+
+<section
+  id="CustomBanner-{{ section.id }}"
+  class="custom-banner"
+  data-custom-banner
+  data-section-id="{{ section.id }}"
+  aria-label="{{ section.settings.heading | default: section.settings.sub-heading | escape }}"
+>
+  <div class="custom-banner__media-wrap" aria-hidden="true">
+    {%- if banner_image != blank -%}
+      <picture class="custom-banner__picture">
+        {%- if banner_image_mobile != blank -%}
+          <source
+            media="(max-width: 768px)"
+            srcset="
+              {{ banner_image_mobile | image_url: width: 375 }} 375w,
+              {{ banner_image_mobile | image_url: width: 550 }} 550w,
+              {{ banner_image_mobile | image_url: width: 750 }} 750w,
+              {{ banner_image_mobile | image_url: width: 1100 }} 1100w
+            "
+            sizes="100vw"
+          >
+        {%- endif -%}
+        {{
+          banner_image
+          | image_url: width: 3840
+          | image_tag:
+            class: 'custom-banner__media is-loaded',
+            widths: widths,
+            sizes: '100vw',
+            loading: 'eager',
+            fetchpriority: fetch_priority,
+            alt: banner_alt
+        }}
+      </picture>
+    {%- else -%}
+      <div class="custom-banner__media custom-banner__media--placeholder">
+        {{ 'lifestyle-2' | placeholder_svg_tag: 'placeholder-svg' }}
+      </div>
+    {%- endif -%}
+
+    {%- if section.settings.enable_overlay and section.settings.overlay_opacity > 0 -%}
+      <span class="custom-banner__overlay"></span>
+    {%- endif -%}
+  </div>
+
+  <div class="custom-banner__inner page-width">
+    <div class="custom-banner__content">
+      {%- if section.settings.sub-heading != blank -%}
+        <p class="custom-banner__eyebrow">{{ section.settings.sub-heading | escape }}</p>
+      {%- endif -%}
+
+      {%- if section.settings.heading != blank -%}
+        <h1 class="custom-banner__title">{{ section.settings.heading | escape }}</h1>
+      {%- endif -%}
+
+      {%- if section.settings.desc != blank -%}
+        <div class="custom-banner__desc rte">{{ section.settings.desc }}</div>
+      {%- endif -%}
+
+      {%- if section.settings.btn_text != blank or section.settings.secondary_text != blank -%}
+        <div class="custom-banner__actions">
+          {%- if section.settings.btn_text != blank -%}
+            <a
+              href="{{ section.settings.btn_link | default: '#' }}"
+              class="custom-banner__btn"
+            >
+              {{ section.settings.btn_text | escape }}
+            </a>
+          {%- endif -%}
+
+          {%- if section.settings.secondary_text != blank -%}
+            <a
+              href="{{ section.settings.secondary_link | default: '#' }}"
+              class="custom-banner__link"
+            >
+              <span>{{ section.settings.secondary_text | escape }}</span>
+              <span class="custom-banner__link-icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" focusable="false">
+                  <path d="M3.333 8h9.334M8.667 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+            </a>
+          {%- endif -%}
         </div>
+      {%- endif -%}
     </div>
-
+  </div>
 </section>
 
 {% schema %}
@@ -63,70 +162,292 @@
   },
   "settings": [
     {
-      "type": "color_scheme",
-      "id": "color_scheme",
-      "label": "Color Scheme",
-      "default": "scheme-1"
+      "type": "header",
+      "content": "Background image"
     },
     {
       "type": "image_picker",
       "id": "background_img_desktop",
-      "label": "Add Banner Background [Desktop]"
+      "label": "Background image",
+      "info": "Set the focal point in the image editor so the product stays visible on mobile."
     },
     {
       "type": "image_picker",
       "id": "background_img_mob",
-      "label": "Add Banner Background [Mobile]"
+      "label": "Background image (mobile)",
+      "info": "Optional. Falls back to the desktop image."
     },
     {
-        "type": "text",
-        "id": "sub-heading",
-        "label": "Add subheading"
+      "type": "select",
+      "id": "mobile_focal_point",
+      "label": "Mobile focal point",
+      "info": "Used when the image has no focal point set. Keeps the product in frame on narrow screens.",
+      "options": [
+        { "value": "auto", "label": "Use image focal point" },
+        { "value": "product", "label": "Product (right)" },
+        { "value": "right", "label": "Right" },
+        { "value": "center", "label": "Center" },
+        { "value": "left", "label": "Left" }
+      ],
+      "default": "product"
     },
     {
-        "type": "text",
-        "id": "heading",
-        "label": "Add Heading"
+      "type": "header",
+      "content": "Image overlay"
     },
     {
-        "type": "richtext",
-        "id": "desc",
-        "label": "Add Description"
+      "type": "checkbox",
+      "id": "enable_overlay",
+      "label": "Enable overlay",
+      "default": true
     },
     {
-        "type": "text",
-        "id": "btn_text",
-        "label": "Add Button Text"
+      "type": "color",
+      "id": "overlay_color",
+      "label": "Overlay color",
+      "default": "#000000"
     },
     {
-        "type": "url",
-        "id": "btn_link",
-        "label": "Add Button Link"
+      "type": "range",
+      "id": "overlay_opacity",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "label": "Overlay opacity",
+      "default": 30
     },
     {
-      "type": "image_picker",
-      "id": "hero_banner_img",
-      "label": "Select Image"
+      "type": "header",
+      "content": "Aspect ratio (prevents CLS)"
+    },
+    {
+      "type": "select",
+      "id": "aspect_ratio_desktop",
+      "label": "Desktop aspect ratio",
+      "options": [
+        { "value": "21 / 9", "label": "21:9 (ultrawide)" },
+        { "value": "16 / 9", "label": "16:9" },
+        { "value": "2 / 1", "label": "2:1" },
+        { "value": "5 / 2", "label": "5:2" },
+        { "value": "3 / 2", "label": "3:2" }
+      ],
+      "default": "21 / 9"
+    },
+    {
+      "type": "select",
+      "id": "aspect_ratio_tablet",
+      "label": "Tablet aspect ratio",
+      "options": [
+        { "value": "16 / 9", "label": "16:9" },
+        { "value": "3 / 2", "label": "3:2" },
+        { "value": "4 / 3", "label": "4:3" },
+        { "value": "1 / 1", "label": "1:1" }
+      ],
+      "default": "16 / 9"
+    },
+    {
+      "type": "select",
+      "id": "aspect_ratio_mobile",
+      "label": "Mobile aspect ratio",
+      "options": [
+        { "value": "4 / 5", "label": "4:5" },
+        { "value": "3 / 4", "label": "3:4" },
+        { "value": "1 / 1", "label": "1:1" },
+        { "value": "5 / 6", "label": "5:6" },
+        { "value": "3 / 2", "label": "3:2" }
+      ],
+      "default": "4 / 5"
+    },
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "text",
+      "id": "sub-heading",
+      "label": "Eyebrow",
+      "default": "DAILY WELLNESS, SIMPLIFIED"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Your greens, handled."
+    },
+    {
+      "type": "richtext",
+      "id": "desc",
+      "label": "Description",
+      "default": "<p>One scoop. 30+ superfoods. The daily ritual thousands rely on — now with subscribe & save.</p>"
+    },
+    {
+      "type": "range",
+      "id": "content_max_width",
+      "min": 280,
+      "max": 720,
+      "step": 10,
+      "unit": "px",
+      "label": "Content max width",
+      "default": 460
+    },
+    {
+      "type": "header",
+      "content": "Title font size"
+    },
+    {
+      "type": "range",
+      "id": "title_size_desktop",
+      "min": 28,
+      "max": 96,
+      "step": 1,
+      "unit": "px",
+      "label": "Desktop",
+      "default": 56
+    },
+    {
+      "type": "range",
+      "id": "title_size_tablet",
+      "min": 24,
+      "max": 72,
+      "step": 1,
+      "unit": "px",
+      "label": "Tablet",
+      "default": 44
+    },
+    {
+      "type": "range",
+      "id": "title_size_mobile",
+      "min": 22,
+      "max": 56,
+      "step": 1,
+      "unit": "px",
+      "label": "Mobile",
+      "default": 34
+    },
+    {
+      "type": "header",
+      "content": "Description font size"
+    },
+    {
+      "type": "range",
+      "id": "desc_size_desktop",
+      "min": 12,
+      "max": 28,
+      "step": 1,
+      "unit": "px",
+      "label": "Desktop",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "desc_size_tablet",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "label": "Tablet",
+      "default": 15
+    },
+    {
+      "type": "range",
+      "id": "desc_size_mobile",
+      "min": 12,
+      "max": 22,
+      "step": 1,
+      "unit": "px",
+      "label": "Mobile",
+      "default": 14
+    },
+    {
+      "type": "header",
+      "content": "Colors"
+    },
+    {
+      "type": "color",
+      "id": "eyebrow_color",
+      "label": "Eyebrow",
+      "default": "#B5654A"
+    },
+    {
+      "type": "color",
+      "id": "title_color",
+      "label": "Heading",
+      "default": "#1A3A32"
+    },
+    {
+      "type": "color",
+      "id": "desc_color",
+      "label": "Description",
+      "default": "#2C2C2C"
+    },
+    {
+      "type": "color",
+      "id": "button_bg",
+      "label": "Button background",
+      "default": "#111111"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "Button text",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "link_color",
+      "label": "Secondary link",
+      "default": "#1A1A1A"
+    },
+    {
+      "type": "header",
+      "content": "Buttons"
+    },
+    {
+      "type": "text",
+      "id": "btn_text",
+      "label": "Primary button label",
+      "default": "Shop Daily Greens"
+    },
+    {
+      "type": "url",
+      "id": "btn_link",
+      "label": "Primary button link"
+    },
+    {
+      "type": "text",
+      "id": "secondary_text",
+      "label": "Secondary link label",
+      "default": "Take the 30-sec quiz"
+    },
+    {
+      "type": "url",
+      "id": "secondary_link",
+      "label": "Secondary link"
+    },
+    {
+      "type": "header",
+      "content": "Section padding"
     },
     {
       "type": "range",
       "id": "padding_top",
       "min": 0,
-      "max": 200,
-      "step": 5,
+      "max": 120,
+      "step": 4,
       "unit": "px",
-      "label": "Padding Top",
-      "default": 60
+      "label": "Padding top",
+      "default": 0
     },
     {
       "type": "range",
       "id": "padding_bottom",
       "min": 0,
-      "max": 200,
-      "step": 5,
+      "max": 120,
+      "step": 4,
       "unit": "px",
-      "label": "Padding Bottom",
-      "default": 60
+      "label": "Padding bottom",
+      "default": 0
     }
   ],
   "presets": [
