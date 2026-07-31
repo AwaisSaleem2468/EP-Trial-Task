@@ -17,7 +17,7 @@
         "background_img_mob": "shopify://shop_images/Vela-Banner-bg.jpg",
         "mobile_focal_point": "product",
         "enable_overlay": false,
-        "overlay_color": "#FFFFFF",
+        "overlay_color": "#ffffff",
         "overlay_opacity": 20,
         "aspect_ratio_desktop": "21 / 9",
         "aspect_ratio_tablet": "16 / 9",
@@ -32,12 +32,12 @@
         "desc_size_desktop": 18,
         "desc_size_tablet": 16,
         "desc_size_mobile": 14,
-        "eyebrow_color": "#C6613F",
-        "title_color": "#1F3D2B",
+        "eyebrow_color": "#c6613f",
+        "title_color": "#1f3d2b",
         "desc_color": "#575752",
-        "button_bg": "#14110E",
+        "button_bg": "#14110e",
         "button_text_color": "#ffffff",
-        "link_color": "#14110E",
+        "link_color": "#14110e",
         "btn_text": "Shop Daily Greens",
         "btn_link": "",
         "secondary_text": "Take the 30-sec quiz",
@@ -46,11 +46,10 @@
         "padding_bottom": 0
       }
     },
-    "custom_featured_collection": {
+    "custom_section_featured_collection_VjpCNJ": {
       "type": "custom-section-featured-collection",
-      "name": "Custom Featured Collection",
       "blocks": {
-        "switch_1": {
+        "switch_74KGtD": {
           "type": "switch",
           "settings": {
             "one_time_label": "One-time",
@@ -60,58 +59,59 @@
             "default_mode": "subscribe"
           }
         },
-        "tab_bestsellers": {
+        "tab_QFVVqM": {
           "type": "tab",
           "settings": {
-            "collection": "",
+            "collection": "bestsellers",
             "label": "Bestsellers",
             "products_to_show": 8,
-            "background_color": "#F3EDE4",
-            "dot_color": "#1F3D2B"
+            "background_color": "#f3ede4",
+            "dot_color": "#1f3d2b"
           }
         },
-        "tab_greens": {
+        "tab_jP7Fjw": {
           "type": "tab",
           "settings": {
-            "collection": "",
+            "collection": "greens",
             "label": "Greens",
             "products_to_show": 8,
-            "background_color": "#E4EDE6",
-            "dot_color": "#8FAE8B"
+            "background_color": "#e4ede6",
+            "dot_color": "#8fae8b"
           }
         },
-        "tab_sleep": {
+        "tab_39yKix": {
           "type": "tab",
           "settings": {
-            "collection": "",
+            "collection": "sleep",
             "label": "Sleep",
             "products_to_show": 8,
-            "background_color": "#E6ECF0",
-            "dot_color": "#A7B8C4"
+            "background_color": "#e6ecf0",
+            "dot_color": "#a7b8c4"
           }
         },
-        "tab_bundles": {
+        "tab_Qy9wey": {
           "type": "tab",
           "settings": {
-            "collection": "",
+            "collection": "bundles",
             "label": "Bundles",
             "products_to_show": 8,
-            "background_color": "#F3E6DC",
-            "dot_color": "#E0B89A"
+            "background_color": "#f3e6dc",
+            "dot_color": "#e0b89a"
           }
         }
       },
       "block_order": [
-        "switch_1",
-        "tab_bestsellers",
-        "tab_greens",
-        "tab_sleep",
-        "tab_bundles"
+        "switch_74KGtD",
+        "tab_QFVVqM",
+        "tab_jP7Fjw",
+        "tab_39yKix",
+        "tab_Qy9wey"
       ],
+      "name": "Tabbed Collection",
       "settings": {
         "eyebrow": "SHOP THE RANGE",
         "heading": "Bestsellers, curated for you",
-        "description": "<p>Each tab swaps the cards and changes this section's background. Use the arrows, or swipe on mobile.</p>",
+        "description": "<p>Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been </p>",
         "button_label": "Add to cart",
         "products_to_show": 8,
         "show_rating": true,
@@ -120,7 +120,7 @@
         "fallback_bg": "#F3EDE4",
         "eyebrow_color": "#C6613F",
         "heading_color": "#1F3D2B",
-        "text_color": "#3D4F44",
+        "text_color": "#80734D",
         "active_tab_bg": "#1F3D2B",
         "padding_top": 64,
         "padding_bottom": 64
@@ -129,6 +129,6 @@
   },
   "order": [
     "custom_section_banner_gfPYMF",
-    "custom_featured_collection"
+    "custom_section_featured_collection_VjpCNJ"
   ]
 }
