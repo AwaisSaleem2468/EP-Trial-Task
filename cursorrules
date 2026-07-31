@@ -1,0 +1,11 @@
+- Always use Shopify schema instead of hardcoded content.
+- Follow Dawn theme architecture.
+- Prefer reusable sections and snippets.
+- Never hardcode colors if they can be schema settings.
+- Use Shopify Selling Plans instead of custom subscription logic.
+- Use Variant Metafields when additional variant information is required.
+- Use Metaobjects for scalable structured content.
+- Use Shopify's image_url filter correctly.
+- Maintain pixel-perfect parity with the provided Figma.
+- Test for 1440px, 991, 768px, and 375px breakpoints.
+- Ensure code is compatible with Theme Check.

@@ -1,0 +1,32 @@
+/*
+ * ------------------------------------------------------------
+ * IMPORTANT: The contents of this file are auto-generated.
+ *
+ * This file may be updated by the Shopify admin theme editor
+ * or related systems. Please exercise caution as any changes
+ * made to this file may be overwritten.
+ * ------------------------------------------------------------
+ */
+{
+  "sections": {
+    "custom_section_banner_gfPYMF": {
+      "type": "custom-section-banner",
+      "name": "Custom Banner",
+      "settings": {
+        "color_scheme": "",
+        "background_img_desktop": "shopify://shop_images/Vela-Banner-bg.jpg",
+        "background_img_mob": "shopify://shop_images/Vela-Banner-bg.jpg",
+        "sub-heading": "DAILY WELLNESS, SIMPLIFIED",
+        "heading": "Your greens,handled.",
+        "desc": "<p>One scoop. 30+ superfoods. The daily ritual thousands rely on — now with subscribe & save.</p>",
+        "btn_text": "Shop Daily Greens",
+        "btn_link": "#",
+        "padding_top": 60,
+        "padding_bottom": 60
+      }
+    }
+  },
+  "order": [
+    "custom_section_banner_gfPYMF"
+  ]
+}
