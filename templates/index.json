@@ -55,7 +55,7 @@
             "one_time_label": "One-time",
             "subscribe_label": "Subscribe",
             "discount_percent": 15,
-            "use_selling_plans": true,
+            "subscribe_discount_code": "SUBSCRIBE15",
             "default_mode": "subscribe"
           }
         },

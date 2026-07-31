@@ -16,17 +16,17 @@
   endfor
 
   assign discount_percent = 15
-  assign use_selling_plans = true
   assign default_mode = 'subscribe'
   assign one_time_label = 'One-time'
   assign subscribe_label = 'Subscribe'
+  assign subscribe_discount_code = ''
 
   if switch_block
     assign discount_percent = switch_block.settings.discount_percent
-    assign use_selling_plans = switch_block.settings.use_selling_plans
     assign default_mode = switch_block.settings.default_mode
     assign one_time_label = switch_block.settings.one_time_label
     assign subscribe_label = switch_block.settings.subscribe_label
+    assign subscribe_discount_code = switch_block.settings.subscribe_discount_code
   endif
 
   assign button_label = section.settings.button_label | default: 'Add to cart'
@@ -47,6 +47,7 @@
   data-section-id="{{ section.id }}"
   data-purchase-mode="{{ default_mode }}"
   data-discount-percent="{{ discount_percent }}"
+  data-subscribe-discount-code="{{ subscribe_discount_code | escape }}"
   style="
     --ep-featured-bg: {{ active_bg }};
     --ep-eyebrow: {{ section.settings.eyebrow_color }};
@@ -195,7 +196,6 @@
                     product: product,
                     tab_id: this_tab_id,
                     discount_percent: discount_percent,
-                    use_selling_plans: use_selling_plans,
                     button_label: button_label,
                     show_rating: section.settings.show_rating,
                     image_bg: card_image_bg
@@ -382,16 +382,15 @@
           "max": 50,
           "step": 1,
           "unit": "%",
-          "label": "Subscribe discount badge",
+          "label": "Subscribe discount",
           "default": 15,
-          "info": "Shown on the toggle. Used as fallback pricing when the product has no selling plan."
+          "info": "Used for card price display. Match this with your Shopify discount code percentage."
         },
         {
-          "type": "checkbox",
-          "id": "use_selling_plans",
-          "label": "Prefer Shopify selling plan prices",
-          "default": true,
-          "info": "When enabled, subscribe price and ATC use the first selling plan allocation on the variant."
+          "type": "text",
+          "id": "subscribe_discount_code",
+          "label": "Subscribe discount code",
+          "info": "Required for cart discount (no app). Admin → Discounts → create a percentage code (e.g. SUBSCRIBE15 for 15% off), then enter that code here."
         },
         {
           "type": "select",
@@ -456,7 +455,7 @@
             "one_time_label": "One-time",
             "subscribe_label": "Subscribe",
             "discount_percent": 15,
-            "use_selling_plans": true,
+            "subscribe_discount_code": "SUBSCRIBE15",
             "default_mode": "subscribe"
           }
         },

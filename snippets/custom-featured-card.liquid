@@ -5,7 +5,6 @@
   - product: {Object} Product
   - tab_id: {String}
   - discount_percent: {Number}
-  - use_selling_plans: {Boolean}
   - button_label: {String}
   - show_rating: {Boolean}
   - image_bg: {String}
@@ -13,6 +12,8 @@
   Product metafields used:
   - custom.product_rating (decimal)
   - custom.product_rating_stars (integer)
+
+  Subscribe savings use a native Shopify discount code (no subscription app).
 {% endcomment %}
 {%- liquid
   assign card_product = product
@@ -20,15 +21,8 @@
   assign onetime_price = variant.price
   assign compare_at = variant.compare_at_price
   assign subscribe_price = onetime_price
-  assign selling_plan_id = blank
-  assign has_selling_plan = false
 
-  if use_selling_plans and variant.selling_plan_allocations.size > 0
-    assign allocation = variant.selling_plan_allocations.first
-    assign subscribe_price = allocation.price
-    assign selling_plan_id = allocation.selling_plan.id
-    assign has_selling_plan = true
-  elsif discount_percent > 0
+  if discount_percent > 0
     assign save_cents = onetime_price | times: discount_percent | divided_by: 100
     assign subscribe_price = onetime_price | minus: save_cents
   endif
@@ -92,7 +86,6 @@
   data-ep-card
   data-tab="{{ tab_id | escape }}"
   data-variant-id="{{ variant.id }}"
-  data-selling-plan-id="{{ selling_plan_id }}"
   data-available="{{ variant.available }}"
 >
   <a
@@ -108,7 +101,7 @@
         | image_tag:
           loading: 'lazy',
           widths: '240, 360, 480, 640, 800',
-          sizes: '(max-width: 768px) 65vw, (max-width: 991px) 33vw, 22vw',
+          sizes: '(max-width: 768px) 65vw, (min-width: 991px) 22vw, 33vw',
           class: 'custom-featured__card-image',
           alt: image_alt
       }}

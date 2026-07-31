@@ -42,6 +42,7 @@
       this.prevBtn = section.querySelector('[data-ep-prev]');
       this.nextBtn = section.querySelector('[data-ep-next]');
       this.mode = section.dataset.purchaseMode || 'subscribe';
+      this.discountCode = (section.dataset.subscribeDiscountCode || '').trim();
       this.activeTabId = this.tabs.find((tab) => tab.classList.contains('is-active'))?.dataset.tabId || this.tabs[0]?.dataset.tabId;
 
       this.onTabClick = this.onTabClick.bind(this);
@@ -201,60 +202,79 @@
       const card = button.closest('[data-ep-card]');
       if (!card) return;
 
-      const variantId = card.dataset.variantId;
+      const variantId = Number(card.dataset.variantId);
       if (!variantId) return;
 
-      const payload = {
-        items: [
-          {
-            id: Number(variantId),
-            quantity: 1,
-          },
-        ],
-      };
-
-      if (this.mode === 'subscribe' && card.dataset.sellingPlanId) {
-        payload.items[0].selling_plan = Number(card.dataset.sellingPlanId);
-      }
-
+      const isSubscribe = this.mode === 'subscribe';
       const cart = document.querySelector('cart-notification') || document.querySelector('cart-drawer');
       const spinner = button.querySelector('.custom-featured__atc-spinner');
       const label = button.querySelector('[data-ep-atc-label]');
+      const originalLabel = label?.textContent;
+      const root = window.Shopify?.routes?.root || '/';
 
       button.classList.add('is-loading');
       button.setAttribute('aria-disabled', 'true');
       spinner?.classList.remove('hidden');
 
       try {
-        const formData = new FormData();
-        formData.append('id', variantId);
-        formData.append('quantity', '1');
-        if (payload.items[0].selling_plan) {
-          formData.append('selling_plan', String(payload.items[0].selling_plan));
+        if (isSubscribe) {
+          if (!this.discountCode) {
+            throw new Error('Add a Subscribe discount code in the section settings');
+          }
+          await this.applyDiscountCode(this.discountCode);
+        } else {
+          await this.clearDiscountCode();
         }
 
+        const payload = {
+          items: [
+            {
+              id: variantId,
+              quantity: 1,
+              properties: {
+                _purchase_option: isSubscribe ? 'subscribe' : 'one-time',
+              },
+            },
+          ],
+        };
+
         if (cart?.getSectionsToRender) {
-          formData.append(
-            'sections',
-            cart.getSectionsToRender().map((section) => section.id)
-          );
-          formData.append('sections_url', window.location.pathname);
+          payload.sections = cart
+            .getSectionsToRender()
+            .map((section) => section.id)
+            .join(',');
+          payload.sections_url = window.location.pathname;
           cart.setActiveElement?.(document.activeElement);
         }
 
-        const route = window.routes?.cart_add_url || '/cart/add.js';
-        const response = await fetch(route, {
+        const response = await fetch(`${root}cart/add.js`, {
           method: 'POST',
           headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            Accept: 'application/javascript',
           },
-          body: formData,
+          body: JSON.stringify(payload),
         });
 
-        const data = await response.json();
+        let data = await response.json();
         if (data.status) {
           throw new Error(data.description || data.message || 'Unable to add to cart');
+        }
+
+        // Refresh cart sections so discount totals render correctly in the drawer.
+        if (cart?.getSectionsToRender) {
+          const sectionIds = cart
+            .getSectionsToRender()
+            .map((section) => section.id)
+            .join(',');
+          const sectionsResponse = await fetch(
+            `${root}?sections=${encodeURIComponent(sectionIds)}&sections_url=${encodeURIComponent(window.location.pathname)}`
+          );
+          if (sectionsResponse.ok) {
+            const sections = await sectionsResponse.json();
+            data = { ...data, sections };
+          }
         }
 
         if (cart?.renderContents) {
@@ -266,23 +286,48 @@
         if (typeof publish === 'function' && typeof PUB_SUB_EVENTS !== 'undefined') {
           publish(PUB_SUB_EVENTS.cartUpdate, {
             source: 'custom-featured',
-            productVariantId: variantId,
+            productVariantId: String(variantId),
             cartData: data,
           });
         }
       } catch (error) {
         console.error(error);
         if (label) {
-          const original = label.textContent;
           label.textContent = 'Error';
           setTimeout(() => {
-            label.textContent = original;
+            label.textContent = originalLabel;
           }, 1600);
         }
       } finally {
         button.classList.remove('is-loading');
         button.removeAttribute('aria-disabled');
         spinner?.classList.add('hidden');
+      }
+    }
+
+    async applyDiscountCode(code) {
+      const root = window.Shopify?.routes?.root || '/';
+      await fetch(`${root}discount/${encodeURIComponent(code)}`, {
+        method: 'GET',
+        credentials: 'same-origin',
+      });
+    }
+
+    async clearDiscountCode() {
+      const root = window.Shopify?.routes?.root || '/';
+      try {
+        await fetch(`${root}cart/update.js`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({ discount: '' }),
+        });
+      } catch (error) {
+        // Native Ajax cart cannot always clear discounts; checkout can still remove them.
+        console.warn('Unable to clear discount code', error);
       }
     }
   }
