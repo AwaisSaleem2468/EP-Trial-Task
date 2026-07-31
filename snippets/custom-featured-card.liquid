@@ -9,7 +9,10 @@
   - button_label: {String}
   - show_rating: {Boolean}
   - image_bg: {String}
-  - fallback_rating: {String}
+
+  Product metafields used:
+  - custom.product_rating (decimal)
+  - custom.product_rating_stars (integer)
 {% endcomment %}
 {%- liquid
   assign card_product = product
@@ -45,10 +48,36 @@
   endif
 
   assign rating_value = blank
-  if card_product.metafields.reviews.rating.value != blank
-    assign rating_value = card_product.metafields.reviews.rating.value.rating
-  elsif fallback_rating != blank
-    assign rating_value = fallback_rating
+  assign rating_scale = 5
+  assign rating_stars = blank
+  assign show_rating_row = false
+
+  if card_product.metafields.custom.product_rating != blank
+    assign rating_value = card_product.metafields.custom.product_rating.value
+  endif
+
+  if card_product.metafields.custom.product_rating_stars != blank
+    assign rating_stars = card_product.metafields.custom.product_rating_stars.value | plus: 0
+  elsif rating_value != blank
+    assign rating_stars = rating_value | round
+    if rating_stars > rating_scale
+      assign rating_stars = rating_scale
+    endif
+  endif
+
+  if rating_stars != blank
+    if rating_stars > rating_scale
+      assign rating_stars = rating_scale
+    endif
+    if rating_stars < 0
+      assign rating_stars = 0
+    endif
+  endif
+
+  if show_rating
+    if rating_value != blank or rating_stars != blank
+      assign show_rating_row = true
+    endif
   endif
 
   assign media_bg = image_bg | default: '#E8DFD4'
@@ -93,16 +122,31 @@
       <a href="{{ card_product.url }}">{{ card_product.title | escape }}</a>
     </h3>
 
-    {%- if show_rating and rating_value != blank -%}
-      <div class="custom-featured__rating" aria-label="Rated {{ rating_value }} out of 5">
-        <span class="custom-featured__stars" aria-hidden="true">
-          {%- for i in (1..5) -%}
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" focusable="false">
-              <path d="M7 0.5l1.76 3.57 3.94.57-2.85 2.78.67 3.92L7 9.5l-3.52 1.84.67-3.92L1.3 4.64l3.94-.57L7 .5z"/>
-            </svg>
-          {%- endfor -%}
-        </span>
-        <span class="custom-featured__rating-value">{{ rating_value }}</span>
+    {%- if show_rating_row -%}
+      <div
+        class="custom-featured__rating"
+        aria-label="{% if rating_value != blank %}Rated {{ rating_value }} out of {{ rating_scale }}{% endif %}"
+      >
+        {%- if rating_stars != blank -%}
+          <span class="custom-featured__stars" aria-hidden="true">
+            {%- for i in (1..rating_scale) -%}
+              <svg
+                class="custom-featured__star{% if i > rating_stars %} custom-featured__star--empty{% endif %}"
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="currentColor"
+                focusable="false"
+              >
+                <path d="M7 0.5l1.76 3.57 3.94.57-2.85 2.78.67 3.92L7 9.5l-3.52 1.84.67-3.92L1.3 4.64l3.94-.57L7 .5z"/>
+              </svg>
+            {%- endfor -%}
+          </span>
+        {%- endif -%}
+
+        {%- if rating_value != blank -%}
+          <span class="custom-featured__rating-value">{{ rating_value }}</span>
+        {%- endif -%}
       </div>
     {%- endif -%}
 
@@ -115,7 +159,7 @@
       data-compare-onetime="{% if money_compare %}{{ money_compare | escape }}{% elsif onetime_price > subscribe_price %}{{ money_onetime | escape }}{% endif %}"
     >
       <span class="custom-featured__price-current" data-ep-price-current>{{ money_subscribe }}</span>
-      <s
+      <span
         class="custom-featured__price-compare{% unless money_compare or onetime_price > subscribe_price %} hidden{% endunless %}"
         data-ep-price-compare
       >
@@ -124,7 +168,7 @@
         {%- elsif onetime_price > subscribe_price -%}
           {{ money_onetime }}
         {%- endif -%}
-      </s>
+      </span>
     </div>
 
     <button

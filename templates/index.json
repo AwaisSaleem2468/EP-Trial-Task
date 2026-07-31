@@ -115,7 +115,6 @@
         "button_label": "Add to cart",
         "products_to_show": 8,
         "show_rating": true,
-        "fallback_rating": "4.9",
         "card_image_bg": "#E8DFD4",
         "fallback_bg": "#F3EDE4",
         "eyebrow_color": "#C6613F",

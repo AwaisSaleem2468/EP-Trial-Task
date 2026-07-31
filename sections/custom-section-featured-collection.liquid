@@ -198,8 +198,7 @@
                     use_selling_plans: use_selling_plans,
                     button_label: button_label,
                     show_rating: section.settings.show_rating,
-                    image_bg: card_image_bg,
-                    fallback_rating: section.settings.fallback_rating
+                    image_bg: card_image_bg
                   %}
                 </div>
               {%- endfor -%}
@@ -291,14 +290,7 @@
       "id": "show_rating",
       "label": "Show product rating",
       "default": true,
-      "info": "Uses product review metafields when available."
-    },
-    {
-      "type": "text",
-      "id": "fallback_rating",
-      "label": "Fallback rating",
-      "default": "4.9",
-      "info": "Shown when a product has no review metafield."
+      "info": "Uses decimal metafield custom.product_rating and integer metafield custom.product_rating_stars."
     },
     {
       "type": "color",
