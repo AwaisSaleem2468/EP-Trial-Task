@@ -355,7 +355,7 @@ body{
   }
 
   .custom-banner__actions {
-    gap: 1.2rem 1.6rem;
+    gap: 1rem;
   }
 
   .custom-banner__btn {
@@ -764,6 +764,9 @@ body{
 }
 
 @media screen and (max-width: 768px) {
+  .announcement-bar__message {
+    font-size: 11px;
+  }
   .custom-featured {
     --ep-cards-desktop: var(--ep-cards-mobile);
     --ep-gap: 1.2rem;
