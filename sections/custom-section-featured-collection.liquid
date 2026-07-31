@@ -1,0 +1,511 @@
+{%- liquid
+  assign switch_block = false
+  assign first_tab = false
+  assign tab_count = 0
+
+  for block in section.blocks
+    if block.type == 'switch' and switch_block == false
+      assign switch_block = block
+    endif
+    if block.type == 'tab'
+      assign tab_count = tab_count | plus: 1
+      if first_tab == false
+        assign first_tab = block
+      endif
+    endif
+  endfor
+
+  assign discount_percent = 15
+  assign use_selling_plans = true
+  assign default_mode = 'subscribe'
+  assign one_time_label = 'One-time'
+  assign subscribe_label = 'Subscribe'
+
+  if switch_block
+    assign discount_percent = switch_block.settings.discount_percent
+    assign use_selling_plans = switch_block.settings.use_selling_plans
+    assign default_mode = switch_block.settings.default_mode
+    assign one_time_label = switch_block.settings.one_time_label
+    assign subscribe_label = switch_block.settings.subscribe_label
+  endif
+
+  assign button_label = section.settings.button_label | default: 'Add to cart'
+  assign active_tab_id = ''
+  assign active_bg = section.settings.fallback_bg
+  assign card_image_bg = section.settings.card_image_bg
+
+  if first_tab
+    assign active_tab_id = first_tab.id
+    assign active_bg = first_tab.settings.background_color | default: section.settings.fallback_bg
+  endif
+-%}
+
+<section
+  id="CustomFeatured-{{ section.id }}"
+  class="custom-featured"
+  data-custom-featured
+  data-section-id="{{ section.id }}"
+  data-purchase-mode="{{ default_mode }}"
+  data-discount-percent="{{ discount_percent }}"
+  style="
+    --ep-featured-bg: {{ active_bg }};
+    --ep-eyebrow: {{ section.settings.eyebrow_color }};
+    --ep-heading: {{ section.settings.heading_color }};
+    --ep-text: {{ section.settings.text_color }};
+    --ep-active-tab: {{ section.settings.active_tab_bg }};
+    --ep-pad-top: {{ section.settings.padding_top }}px;
+    --ep-pad-bottom: {{ section.settings.padding_bottom }}px;
+  "
+>
+  <div class="custom-featured__inner page-width">
+    <div class="custom-featured__header">
+      <div class="custom-featured__intro">
+        {%- if section.settings.eyebrow != blank -%}
+          <p class="custom-featured__eyebrow">{{ section.settings.eyebrow | escape }}</p>
+        {%- endif -%}
+
+        {%- if section.settings.heading != blank -%}
+          <h2 class="custom-featured__heading">{{ section.settings.heading | escape }}</h2>
+        {%- endif -%}
+
+        {%- if section.settings.description != blank -%}
+          <div class="custom-featured__desc rte">{{ section.settings.description }}</div>
+        {%- endif -%}
+      </div>
+
+      {%- if switch_block -%}
+        <div
+          class="custom-featured__switch"
+          role="group"
+          aria-label="Purchase options"
+          data-ep-switch
+          {{ switch_block.shopify_attributes }}
+        >
+          <button
+            type="button"
+            class="custom-featured__switch-btn{% if default_mode == 'onetime' %} is-active{% endif %}"
+            data-ep-mode="onetime"
+            aria-pressed="{% if default_mode == 'onetime' %}true{% else %}false{% endif %}"
+          >
+            {{ one_time_label | escape }}
+          </button>
+          <button
+            type="button"
+            class="custom-featured__switch-btn{% if default_mode == 'subscribe' %} is-active{% endif %}"
+            data-ep-mode="subscribe"
+            aria-pressed="{% if default_mode == 'subscribe' %}true{% else %}false{% endif %}"
+          >
+            {{ subscribe_label | escape }}
+            {%- if discount_percent > 0 -%}
+              <span class="custom-featured__switch-badge"> – {{ discount_percent }}%</span>
+            {%- endif -%}
+          </button>
+        </div>
+      {%- endif -%}
+    </div>
+
+    {%- if tab_count > 0 -%}
+      <div class="custom-featured__toolbar">
+        <div class="custom-featured__tabs" role="tablist" aria-label="{{ section.settings.heading | escape }}">
+          {%- for block in section.blocks -%}
+            {%- if block.type == 'tab' -%}
+              {%- liquid
+                assign this_tab_id = block.id
+                assign tab_label = block.settings.label
+                if tab_label == blank and block.settings.collection != blank
+                  assign tab_label = block.settings.collection.title
+                endif
+                if tab_label == blank
+                  assign tab_label = 'Select collection'
+                endif
+                assign is_active = false
+                if this_tab_id == active_tab_id
+                  assign is_active = true
+                endif
+              -%}
+              <button
+                type="button"
+                class="custom-featured__tab{% if is_active %} is-active{% endif %}"
+                role="tab"
+                id="Tab-{{ section.id }}-{{ block.id }}"
+                aria-selected="{{ is_active }}"
+                data-ep-tab
+                data-tab-id="{{ this_tab_id }}"
+                data-tab-bg="{{ block.settings.background_color }}"
+                style="--tab-dot: {{ block.settings.dot_color }};"
+                {{ block.shopify_attributes }}
+              >
+                <span class="custom-featured__tab-dot" aria-hidden="true"></span>
+                <span class="custom-featured__tab-label">{{ tab_label | escape }}</span>
+              </button>
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+
+        <div class="custom-featured__arrows">
+          <button
+            type="button"
+            class="custom-featured__arrow"
+            data-ep-prev
+            aria-label="Previous products"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true" focusable="false">
+              <path d="M11.25 4.5L6.75 9l4.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="custom-featured__arrow"
+            data-ep-next
+            aria-label="Next products"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true" focusable="false">
+              <path d="M6.75 4.5L11.25 9l-4.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    {%- endif -%}
+
+    <div class="custom-featured__viewport" data-ep-viewport>
+      <div class="custom-featured__track" data-ep-track>
+        {%- for block in section.blocks -%}
+          {%- if block.type == 'tab' -%}
+            {%- liquid
+              assign this_tab_id = block.id
+              assign tab_collection = block.settings.collection
+              assign products_to_show = block.settings.products_to_show | default: section.settings.products_to_show
+              assign is_visible = false
+              if this_tab_id == active_tab_id
+                assign is_visible = true
+              endif
+            -%}
+
+            {%- if tab_collection != blank and tab_collection.products_count > 0 -%}
+              {%- for product in tab_collection.products limit: products_to_show -%}
+                <div
+                  class="custom-featured__slide{% unless is_visible %} hidden{% endunless %}"
+                  data-ep-slide
+                  data-tab="{{ this_tab_id }}"
+                  role="tabpanel"
+                  aria-labelledby="Tab-{{ section.id }}-{{ block.id }}"
+                  {% unless is_visible %}hidden{% endunless %}
+                >
+                  {% render 'custom-featured-card',
+                    product: product,
+                    tab_id: this_tab_id,
+                    discount_percent: discount_percent,
+                    use_selling_plans: use_selling_plans,
+                    button_label: button_label,
+                    show_rating: section.settings.show_rating,
+                    image_bg: card_image_bg,
+                    fallback_rating: section.settings.fallback_rating
+                  %}
+                </div>
+              {%- endfor -%}
+            {%- else -%}
+              {%- for i in (1..4) -%}
+                <div
+                  class="custom-featured__slide{% unless is_visible %} hidden{% endunless %}"
+                  data-ep-slide
+                  data-tab="{{ this_tab_id }}"
+                  {% unless is_visible %}hidden{% endunless %}
+                >
+                  <article class="custom-featured__card custom-featured__card--placeholder">
+                    <div class="custom-featured__card-media" style="--card-media-bg: {{ card_image_bg }};">
+                      {{ 'product-1' | placeholder_svg_tag: 'custom-featured__card-image placeholder-svg' }}
+                    </div>
+                    <div class="custom-featured__card-body">
+                      <h3 class="custom-featured__card-title">
+                        {%- if tab_collection == blank -%}
+                          Select a collection
+                        {%- else -%}
+                          Add products to {{ tab_collection.title | escape }}
+                        {%- endif -%}
+                      </h3>
+                      <div class="custom-featured__price">
+                        <span class="custom-featured__price-current">$0.00</span>
+                      </div>
+                      <button type="button" class="custom-featured__atc" disabled>{{ button_label | escape }}</button>
+                    </div>
+                  </article>
+                </div>
+              {%- endfor -%}
+            {%- endif -%}
+          {%- endif -%}
+        {%- endfor -%}
+      </div>
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Featured Collection",
+  "tag": "section",
+  "class": "section-custom-featured",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "SHOP THE RANGE"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Bestsellers, curated for you"
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "Description",
+      "default": "<p>Each tab swaps the cards and changes this section's background. Use the arrows, or swipe on mobile.</p>"
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Add to cart label",
+      "default": "Add to cart"
+    },
+    {
+      "type": "range",
+      "id": "products_to_show",
+      "min": 2,
+      "max": 12,
+      "step": 1,
+      "label": "Default products per tab",
+      "default": 8,
+      "info": "Used when a tab does not set its own limit."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_rating",
+      "label": "Show product rating",
+      "default": true,
+      "info": "Uses product review metafields when available."
+    },
+    {
+      "type": "text",
+      "id": "fallback_rating",
+      "label": "Fallback rating",
+      "default": "4.9",
+      "info": "Shown when a product has no review metafield."
+    },
+    {
+      "type": "color",
+      "id": "card_image_bg",
+      "label": "Card image background",
+      "default": "#E8DFD4"
+    },
+    {
+      "type": "header",
+      "content": "Colors"
+    },
+    {
+      "type": "color",
+      "id": "fallback_bg",
+      "label": "Default section background",
+      "default": "#F3EDE4"
+    },
+    {
+      "type": "color",
+      "id": "eyebrow_color",
+      "label": "Eyebrow",
+      "default": "#C6613F"
+    },
+    {
+      "type": "color",
+      "id": "heading_color",
+      "label": "Heading",
+      "default": "#1F3D2B"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Description",
+      "default": "#3D4F44"
+    },
+    {
+      "type": "color",
+      "id": "active_tab_bg",
+      "label": "Active tab background",
+      "default": "#1F3D2B"
+    },
+    {
+      "type": "header",
+      "content": "Section padding"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding top",
+      "default": 64
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding bottom",
+      "default": 64
+    }
+  ],
+  "blocks": [
+    {
+      "type": "switch",
+      "name": "One-time / Subscribe",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "text",
+          "id": "one_time_label",
+          "label": "One-time label",
+          "default": "One-time"
+        },
+        {
+          "type": "text",
+          "id": "subscribe_label",
+          "label": "Subscribe label",
+          "default": "Subscribe"
+        },
+        {
+          "type": "range",
+          "id": "discount_percent",
+          "min": 0,
+          "max": 50,
+          "step": 1,
+          "unit": "%",
+          "label": "Subscribe discount badge",
+          "default": 15,
+          "info": "Shown on the toggle. Used as fallback pricing when the product has no selling plan."
+        },
+        {
+          "type": "checkbox",
+          "id": "use_selling_plans",
+          "label": "Prefer Shopify selling plan prices",
+          "default": true,
+          "info": "When enabled, subscribe price and ATC use the first selling plan allocation on the variant."
+        },
+        {
+          "type": "select",
+          "id": "default_mode",
+          "label": "Default purchase mode",
+          "options": [
+            { "value": "onetime", "label": "One-time" },
+            { "value": "subscribe", "label": "Subscribe" }
+          ],
+          "default": "subscribe"
+        }
+      ]
+    },
+    {
+      "type": "tab",
+      "name": "Collection tab",
+      "settings": [
+        {
+          "type": "collection",
+          "id": "collection",
+          "label": "Collection",
+          "info": "Products from this collection appear automatically when the tab is active."
+        },
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Tab label",
+          "info": "Optional. Defaults to the collection title."
+        },
+        {
+          "type": "range",
+          "id": "products_to_show",
+          "min": 2,
+          "max": 12,
+          "step": 1,
+          "label": "Products to show",
+          "default": 8
+        },
+        {
+          "type": "color",
+          "id": "background_color",
+          "label": "Section background when active",
+          "default": "#F3EDE4"
+        },
+        {
+          "type": "color",
+          "id": "dot_color",
+          "label": "Tab dot color",
+          "default": "#1F3D2B"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Featured Collection",
+      "category": "Custom Sections",
+      "blocks": [
+        {
+          "type": "switch",
+          "settings": {
+            "one_time_label": "One-time",
+            "subscribe_label": "Subscribe",
+            "discount_percent": 15,
+            "use_selling_plans": true,
+            "default_mode": "subscribe"
+          }
+        },
+        {
+          "type": "tab",
+          "settings": {
+            "label": "Bestsellers",
+            "products_to_show": 8,
+            "background_color": "#F3EDE4",
+            "dot_color": "#1F3D2B"
+          }
+        },
+        {
+          "type": "tab",
+          "settings": {
+            "label": "Greens",
+            "products_to_show": 8,
+            "background_color": "#E4EDE6",
+            "dot_color": "#8FAE8B"
+          }
+        },
+        {
+          "type": "tab",
+          "settings": {
+            "label": "Sleep",
+            "products_to_show": 8,
+            "background_color": "#E6ECF0",
+            "dot_color": "#A7B8C4"
+          }
+        },
+        {
+          "type": "tab",
+          "settings": {
+            "label": "Bundles",
+            "products_to_show": 8,
+            "background_color": "#F3E6DC",
+            "dot_color": "#E0B89A"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

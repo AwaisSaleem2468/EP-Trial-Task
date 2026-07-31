@@ -1,0 +1,146 @@
+{% comment %}
+  Custom featured product card for tabbed slider.
+
+  Accepts:
+  - product: {Object} Product
+  - tab_id: {String}
+  - discount_percent: {Number}
+  - use_selling_plans: {Boolean}
+  - button_label: {String}
+  - show_rating: {Boolean}
+  - image_bg: {String}
+  - fallback_rating: {String}
+{% endcomment %}
+{%- liquid
+  assign card_product = product
+  assign variant = card_product.selected_or_first_available_variant
+  assign onetime_price = variant.price
+  assign compare_at = variant.compare_at_price
+  assign subscribe_price = onetime_price
+  assign selling_plan_id = blank
+  assign has_selling_plan = false
+
+  if use_selling_plans and variant.selling_plan_allocations.size > 0
+    assign allocation = variant.selling_plan_allocations.first
+    assign subscribe_price = allocation.price
+    assign selling_plan_id = allocation.selling_plan.id
+    assign has_selling_plan = true
+  elsif discount_percent > 0
+    assign save_cents = onetime_price | times: discount_percent | divided_by: 100
+    assign subscribe_price = onetime_price | minus: save_cents
+  endif
+
+  if settings.currency_code_enabled
+    assign money_onetime = onetime_price | money_with_currency
+    assign money_subscribe = subscribe_price | money_with_currency
+    if compare_at > onetime_price
+      assign money_compare = compare_at | money_with_currency
+    endif
+  else
+    assign money_onetime = onetime_price | money
+    assign money_subscribe = subscribe_price | money
+    if compare_at > onetime_price
+      assign money_compare = compare_at | money
+    endif
+  endif
+
+  assign rating_value = blank
+  if card_product.metafields.reviews.rating.value != blank
+    assign rating_value = card_product.metafields.reviews.rating.value.rating
+  elsif fallback_rating != blank
+    assign rating_value = fallback_rating
+  endif
+
+  assign media_bg = image_bg | default: '#E8DFD4'
+  assign image_alt = card_product.title
+  if card_product.featured_media != blank and card_product.featured_media.alt != blank
+    assign image_alt = card_product.featured_media.alt
+  endif
+-%}
+
+<article
+  class="custom-featured__card"
+  data-ep-card
+  data-tab="{{ tab_id | escape }}"
+  data-variant-id="{{ variant.id }}"
+  data-selling-plan-id="{{ selling_plan_id }}"
+  data-available="{{ variant.available }}"
+>
+  <a
+    class="custom-featured__card-media"
+    href="{{ card_product.url }}"
+    style="--card-media-bg: {{ media_bg }};"
+    aria-label="{{ card_product.title | escape }}"
+  >
+    {%- if card_product.featured_media != blank -%}
+      {{
+        card_product.featured_media
+        | image_url: width: 800
+        | image_tag:
+          loading: 'lazy',
+          widths: '240, 360, 480, 640, 800',
+          sizes: '(max-width: 768px) 65vw, (max-width: 991px) 33vw, 22vw',
+          class: 'custom-featured__card-image',
+          alt: image_alt
+      }}
+    {%- else -%}
+      {{ 'product-1' | placeholder_svg_tag: 'custom-featured__card-image placeholder-svg' }}
+    {%- endif -%}
+  </a>
+
+  <div class="custom-featured__card-body">
+    <h3 class="custom-featured__card-title">
+      <a href="{{ card_product.url }}">{{ card_product.title | escape }}</a>
+    </h3>
+
+    {%- if show_rating and rating_value != blank -%}
+      <div class="custom-featured__rating" aria-label="Rated {{ rating_value }} out of 5">
+        <span class="custom-featured__stars" aria-hidden="true">
+          {%- for i in (1..5) -%}
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" focusable="false">
+              <path d="M7 0.5l1.76 3.57 3.94.57-2.85 2.78.67 3.92L7 9.5l-3.52 1.84.67-3.92L1.3 4.64l3.94-.57L7 .5z"/>
+            </svg>
+          {%- endfor -%}
+        </span>
+        <span class="custom-featured__rating-value">{{ rating_value }}</span>
+      </div>
+    {%- endif -%}
+
+    <div
+      class="custom-featured__price"
+      data-ep-price
+      data-onetime="{{ money_onetime | escape }}"
+      data-subscribe="{{ money_subscribe | escape }}"
+      data-compare="{% if money_compare %}{{ money_compare | escape }}{% endif %}"
+      data-compare-onetime="{% if money_compare %}{{ money_compare | escape }}{% elsif onetime_price > subscribe_price %}{{ money_onetime | escape }}{% endif %}"
+    >
+      <span class="custom-featured__price-current" data-ep-price-current>{{ money_subscribe }}</span>
+      <s
+        class="custom-featured__price-compare{% unless money_compare or onetime_price > subscribe_price %} hidden{% endunless %}"
+        data-ep-price-compare
+      >
+        {%- if money_compare -%}
+          {{ money_compare }}
+        {%- elsif onetime_price > subscribe_price -%}
+          {{ money_onetime }}
+        {%- endif -%}
+      </s>
+    </div>
+
+    <button
+      type="button"
+      class="custom-featured__atc"
+      data-ep-atc
+      {% unless variant.available %}disabled{% endunless %}
+    >
+      <span data-ep-atc-label>
+        {%- if variant.available -%}
+          {{ button_label | escape }}
+        {%- else -%}
+          {{ 'products.product.sold_out' | t }}
+        {%- endif -%}
+      </span>
+      <span class="custom-featured__atc-spinner hidden" aria-hidden="true"></span>
+    </button>
+  </div>
+</article>

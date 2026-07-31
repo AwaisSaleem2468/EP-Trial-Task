@@ -45,9 +45,90 @@
         "padding_top": 0,
         "padding_bottom": 0
       }
+    },
+    "custom_featured_collection": {
+      "type": "custom-section-featured-collection",
+      "name": "Custom Featured Collection",
+      "blocks": {
+        "switch_1": {
+          "type": "switch",
+          "settings": {
+            "one_time_label": "One-time",
+            "subscribe_label": "Subscribe",
+            "discount_percent": 15,
+            "use_selling_plans": true,
+            "default_mode": "subscribe"
+          }
+        },
+        "tab_bestsellers": {
+          "type": "tab",
+          "settings": {
+            "collection": "",
+            "label": "Bestsellers",
+            "products_to_show": 8,
+            "background_color": "#F3EDE4",
+            "dot_color": "#1F3D2B"
+          }
+        },
+        "tab_greens": {
+          "type": "tab",
+          "settings": {
+            "collection": "",
+            "label": "Greens",
+            "products_to_show": 8,
+            "background_color": "#E4EDE6",
+            "dot_color": "#8FAE8B"
+          }
+        },
+        "tab_sleep": {
+          "type": "tab",
+          "settings": {
+            "collection": "",
+            "label": "Sleep",
+            "products_to_show": 8,
+            "background_color": "#E6ECF0",
+            "dot_color": "#A7B8C4"
+          }
+        },
+        "tab_bundles": {
+          "type": "tab",
+          "settings": {
+            "collection": "",
+            "label": "Bundles",
+            "products_to_show": 8,
+            "background_color": "#F3E6DC",
+            "dot_color": "#E0B89A"
+          }
+        }
+      },
+      "block_order": [
+        "switch_1",
+        "tab_bestsellers",
+        "tab_greens",
+        "tab_sleep",
+        "tab_bundles"
+      ],
+      "settings": {
+        "eyebrow": "SHOP THE RANGE",
+        "heading": "Bestsellers, curated for you",
+        "description": "<p>Each tab swaps the cards and changes this section's background. Use the arrows, or swipe on mobile.</p>",
+        "button_label": "Add to cart",
+        "products_to_show": 8,
+        "show_rating": true,
+        "fallback_rating": "4.9",
+        "card_image_bg": "#E8DFD4",
+        "fallback_bg": "#F3EDE4",
+        "eyebrow_color": "#C6613F",
+        "heading_color": "#1F3D2B",
+        "text_color": "#3D4F44",
+        "active_tab_bg": "#1F3D2B",
+        "padding_top": 64,
+        "padding_bottom": 64
+      }
     }
   },
   "order": [
-    "custom_section_banner_gfPYMF"
+    "custom_section_banner_gfPYMF",
+    "custom_featured_collection"
   ]
 }
