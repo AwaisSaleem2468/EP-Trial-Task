@@ -1124,13 +1124,12 @@ body{
 }
 
 .custom-fp__size-day {
-  margin-top: auto;
-  padding-top: 0.6rem;
-  font-size: 1.45rem;
-  font-weight: 700;
-  color: var(--fp-text, #1a1a1a);
+    margin-top: 0;
+    padding-top: .6rem;
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: var(--fp-text, #1a1a1a);
 }
-
 .custom-fp__purchase {
   display: grid;
   gap: 1.2rem;
