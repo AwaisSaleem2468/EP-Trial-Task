@@ -56,7 +56,7 @@
             "subscribe_label": "Subscribe",
             "discount_percent": 25,
             "subscribe_discount_code": "SUBSCRIBE25",
-            "onetime_discount_code": "ONETIME",
+            "subscribe_selling_plan_id": "697984418075",
             "default_mode": "subscribe"
           }
         },

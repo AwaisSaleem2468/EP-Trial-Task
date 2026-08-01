@@ -8,12 +8,13 @@
   - button_label: {String}
   - show_rating: {Boolean}
   - image_bg: {String}
+  - subscribe_selling_plan_id: {String} optional fallback selling plan ID
 
   Product metafields used:
   - custom.product_rating (decimal)
   - custom.product_rating_stars (integer)
 
-  Subscribe savings use a native Shopify discount code (no subscription app).
+  Subscribe uses selling plan + SUBSCRIBE25 discount code.
 {% endcomment %}
 {%- liquid
   assign card_product = product
@@ -80,9 +81,20 @@
     assign image_alt = card_product.featured_media.alt
   endif
 
-  assign card_selling_plan_id = blank
+  assign card_selling_plan_id = subscribe_selling_plan_id | default: blank
   if card_product.selling_plan_groups.size > 0
-    assign card_selling_plan_id = card_product.selling_plan_groups.first.selling_plans.first.id
+    for group in card_product.selling_plan_groups
+      for plan in group.selling_plans
+        assign plan_name = plan.name | downcase
+        if plan_name contains 'subscribe' or plan_name contains 'subscription' or plan_name contains 'autoship' or plan_name contains 'save'
+          assign card_selling_plan_id = plan.id
+          break
+        endif
+      endfor
+    endfor
+    if card_selling_plan_id == blank
+      assign card_selling_plan_id = card_product.selling_plan_groups.first.selling_plans.first.id
+    endif
   endif
 -%}
 

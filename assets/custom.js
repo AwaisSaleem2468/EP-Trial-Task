@@ -209,7 +209,11 @@
       const variantId = card.dataset.variantId;
       if (!variantId) return;
 
-      const isSubscribe = this.mode === 'subscribe';
+      const activeMode = this.section.querySelector('[data-ep-mode].is-active')?.dataset.epMode;
+      const isSubscribe = (activeMode || this.mode) === 'subscribe';
+      this.mode = isSubscribe ? 'subscribe' : 'onetime';
+      this.section.dataset.purchaseMode = this.mode;
+
       const cartDrawer = document.querySelector('cart-drawer');
       const cartNotification = document.querySelector('cart-notification');
       const cart = cartDrawer || cartNotification;
@@ -218,6 +222,14 @@
       const originalLabel = label?.textContent;
       const root = window.Shopify?.routes?.root || '/';
       const discountCode = (this.discountCode || this.section.dataset.subscribeDiscountCode || '').trim();
+      const sellingPlanId = isSubscribe
+        ? (
+            card.dataset.sellingPlanId ||
+            this.subscribeSellingPlanId ||
+            this.section.dataset.subscribeSellingPlan ||
+            ''
+          ).trim()
+        : '';
 
       button.classList.add('is-loading');
       button.setAttribute('aria-disabled', 'true');
@@ -226,7 +238,7 @@
       try {
         if (isSubscribe && !discountCode) {
           throw new Error(
-            'Add discount code SUBSCRIBE25 in the section setting “Subscribe discount code”'
+            'Add discount code SUBSCRIBE25 in the switch block setting “Subscribe discount code”'
           );
         }
 
@@ -234,22 +246,13 @@
           ? cart.getSectionsToRender().map((section) => section.id)
           : ['cart-drawer', 'cart-icon-bubble'];
 
-        // Add item (Dawn-compatible FormData request)
         const formData = new FormData();
         formData.append('id', variantId);
         formData.append('quantity', '1');
         formData.append(
           'properties[_purchase_option]',
-          isSubscribe ? 'Subscribe & Save' : 'One-time'
+          isSubscribe ? 'Autoship & Save' : 'One-time purchase'
         );
-        const sellingPlanId = isSubscribe
-          ? (
-              card.dataset.sellingPlanId ||
-              this.subscribeSellingPlanId ||
-              this.section.dataset.subscribeSellingPlan ||
-              ''
-            ).trim()
-          : '';
         if (sellingPlanId) {
           formData.append('selling_plan', sellingPlanId);
         }
@@ -271,6 +274,12 @@
 
         if (addData.status) {
           throw new Error(addData.description || addData.message || 'Unable to add to cart');
+        }
+
+        if (isSubscribe && !sellingPlanId) {
+          console.warn(
+            'Tabbed collection Subscribe ATC: missing selling plan ID. Set it on the One-time/Subscribe switch block (same ID as Featured Product).'
+          );
         }
 
         const discountResult = await this.syncPurchaseDiscount({
