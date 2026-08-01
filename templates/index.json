@@ -150,7 +150,7 @@
         "subscribe_perks": "Free shipping every order\nPause, edit or cancel anytime\nVIP perks",
         "discount_percent": 25,
         "subscribe_discount_code": "SUBSCRIBE25",
-        "onetime_discount_code": "",
+        "onetime_discount_code": "ONETIME",
         "default_mode": "subscribe",
         "button_label": "Add to cart",
         "trust_badges": "30-day money-back\nShips in 1 business day\n100K+ customers\nHSA/FSA eligible",
