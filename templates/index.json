@@ -54,8 +54,8 @@
           "settings": {
             "one_time_label": "One-time",
             "subscribe_label": "Subscribe",
-            "discount_percent": 15,
-            "subscribe_discount_code": "SUBSCRIBE15",
+            "discount_percent": 25,
+            "subscribe_discount_code": "SUBSCRIBE25",
             "default_mode": "subscribe"
           }
         },
@@ -115,12 +115,12 @@
         "button_label": "Add to cart",
         "products_to_show": 8,
         "show_rating": true,
-        "card_image_bg": "#E8DFD4",
-        "fallback_bg": "#F3EDE4",
-        "eyebrow_color": "#C6613F",
-        "heading_color": "#1F3D2B",
-        "text_color": "#80734D",
-        "active_tab_bg": "#1F3D2B",
+        "card_image_bg": "#e8dfd4",
+        "fallback_bg": "#f3ede4",
+        "eyebrow_color": "#c6613f",
+        "heading_color": "#1f3d2b",
+        "text_color": "#80734d",
+        "active_tab_bg": "#1f3d2b",
         "padding_top": 64,
         "padding_bottom": 64
       }
