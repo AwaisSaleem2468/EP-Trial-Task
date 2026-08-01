@@ -779,10 +779,12 @@
     updateAtc(variant) {
       if (!this.atc) return;
       const price = this.getPriceForMode(variant);
-      const modeLabel = this.mode === 'subscribe' ? this.subscribeLabel : this.onetimeLabel;
       const label = this.atc.querySelector('[data-fp-atc-label]');
       if (label) {
-        label.textContent = `${this.buttonLabel} · ${modeLabel} · ${this.formatMoney(price)}`;
+        label.textContent =
+          this.mode === 'subscribe'
+            ? `${this.buttonLabel} · Subscribe · ${this.formatMoney(price)}`
+            : `${this.buttonLabel} · ${this.formatMoney(price)}`;
       }
       this.atc.dataset.variantId = String(variant.id);
       this.atc.disabled = !variant.available;

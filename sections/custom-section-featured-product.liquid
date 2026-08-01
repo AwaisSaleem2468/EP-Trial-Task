@@ -213,10 +213,10 @@
                   <span data-fp-rating-value>{{ rating_value }}</span>
                 {%- endif -%}
                 {%- if review_count != blank -%}
-                  <span>· {{ review_count | escape }} {{ section.settings.reviews_label | escape }}</span>
+                  <span> · {{ review_count | escape }} {{ section.settings.reviews_label | escape }}</span>
                 {%- endif -%}
                 {%- if current_variant.available -%}
-                  <span>· {{ section.settings.in_stock_label | escape }}</span>
+                  <span> · {{ section.settings.in_stock_label | escape }}</span>
                 {%- endif -%}
               </span>
             </div>
@@ -250,7 +250,7 @@
           {%- if flavor_option != blank -%}
             <div class="custom-fp__fieldset">
               <p class="custom-fp__label">
-                <span class="custom-fp__step">1</span>
+                <span class="custom-fp__step">1.</span>
                 {{ section.settings.flavor_heading | escape }}
               </p>
               <div class="custom-fp__flavors" role="group" aria-label="{{ flavor_option.name | escape }}" data-fp-flavors>
@@ -304,7 +304,7 @@
           {%- if size_option != blank -%}
             <div class="custom-fp__fieldset">
               <p class="custom-fp__label">
-                <span class="custom-fp__step">2</span>
+                <span class="custom-fp__step">2.</span>
                 {{ section.settings.size_heading | escape }}
               </p>
               <div class="custom-fp__sizes" role="group" aria-label="{{ size_option.name | escape }}" data-fp-sizes>
@@ -422,7 +422,7 @@
 
           <div class="custom-fp__fieldset">
             <p class="custom-fp__label">
-              <span class="custom-fp__step">3</span>
+              <span class="custom-fp__step">3.</span>
               {{ section.settings.purchase_heading | escape }}
             </p>
 
@@ -503,7 +503,20 @@
             {% unless current_variant.available %}disabled{% endunless %}
           >
             <span class="custom-fp__atc-label" data-fp-atc-label>
+              {%- liquid
+                assign atc_base = current_variant.price
+                if default_mode == 'subscribe' and discount_percent > 0
+                  assign atc_save = atc_base | times: discount_percent | divided_by: 100
+                  assign atc_base = atc_base | minus: atc_save
+                endif
+              -%}
               {{ section.settings.button_label | escape }}
+              {%- if default_mode == 'subscribe' -%}
+                · Subscribe ·
+              {%- else -%}
+                ·
+              {%- endif -%}
+              {{ atc_base | money_without_trailing_zeros }}
             </span>
             <span class="custom-fp__atc-spinner hidden" aria-hidden="true"></span>
           </button>
