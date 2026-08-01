@@ -151,6 +151,8 @@
         "discount_percent": 25,
         "subscribe_discount_code": "SUBSCRIBE25",
         "onetime_discount_code": "ONETIME",
+        "subscribe_selling_plan_id": "697984418075",
+        "onetime_selling_plan_id": "",
         "default_mode": "subscribe",
         "button_label": "Add to cart",
         "trust_badges": "30-day money-back\nShips in 1 business day\n100K+ customers\nHSA/FSA eligible",
