@@ -2,6 +2,7 @@
   assign product = section.settings.product
   assign discount_percent = section.settings.discount_percent | default: 25
   assign discount_code = section.settings.subscribe_discount_code | default: 'SUBSCRIBE25'
+  assign onetime_discount_code = section.settings.onetime_discount_code | default: ''
   assign default_mode = section.settings.default_mode | default: 'subscribe'
   assign format_option_name = section.settings.format_option_name | default: 'Format' | strip | downcase
   assign flavor_option_name = section.settings.flavor_option_name | default: 'Flavor' | strip | downcase
@@ -118,6 +119,7 @@
   data-purchase-mode="{{ default_mode }}"
   data-discount-percent="{{ discount_percent }}"
   data-subscribe-discount-code="{{ discount_code | escape }}"
+  data-onetime-discount-code="{{ onetime_discount_code | escape }}"
   data-button-label="{{ section.settings.button_label | escape }}"
   data-subscribe-label="{{ section.settings.subscribe_label | escape }}"
   data-onetime-label="{{ section.settings.onetime_label | escape }}"
@@ -739,7 +741,17 @@
       "id": "subscribe_discount_code",
       "label": "Subscribe discount code",
       "default": "SUBSCRIBE25",
-      "info": "Admin discount code. Purchase type should be One-time or Both."
+      "info": "Applied when Autoship is selected. Admin → Discounts → code with Purchase type One-time or Both."
+    },
+    {
+      "type": "text",
+      "id": "onetime_discount_code",
+      "label": "One-time discount code",
+      "info": "Optional. Applied when One-time is selected (replaces the subscribe code on the whole cart). Leave blank for full base price on one-time."
+    },
+    {
+      "type": "paragraph",
+      "content": "Note: Shopify discount codes are cart-level. The active code applies to every line in the cart. Mixing Subscribe and One-time in one cart will use whichever code was applied last."
     },
     {
       "type": "select",

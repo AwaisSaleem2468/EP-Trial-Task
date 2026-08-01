@@ -43,6 +43,7 @@
       this.nextBtn = section.querySelector('[data-ep-next]');
       this.mode = section.dataset.purchaseMode || 'subscribe';
       this.discountCode = (section.dataset.subscribeDiscountCode || '').trim();
+      this.onetimeDiscountCode = (section.dataset.onetimeDiscountCode || '').trim();
       this.activeTabId =
         this.tabs.find((tab) => tab.classList.contains('is-active'))?.dataset.tabId ||
         this.tabs[0]?.dataset.tabId;
@@ -216,6 +217,11 @@
       const originalLabel = label?.textContent;
       const root = window.Shopify?.routes?.root || '/';
       const discountCode = (this.discountCode || this.section.dataset.subscribeDiscountCode || '').trim();
+      const onetimeDiscountCode = (
+        this.onetimeDiscountCode ||
+        this.section.dataset.onetimeDiscountCode ||
+        ''
+      ).trim();
 
       button.classList.add('is-loading');
       button.setAttribute('aria-disabled', 'true');
@@ -260,32 +266,22 @@
           throw new Error(addData.description || addData.message || 'Unable to add to cart');
         }
 
-        // Apply subscribe discount via Cart Ajax API, then re-render sections
-        let uiState = addData;
-        let discountWarning = '';
-        if (isSubscribe && discountCode) {
-          try {
-            uiState = await this.applyDiscountCode(discountCode, sectionIds);
-            this.syncCheckoutDiscount(discountCode);
-          } catch (discountError) {
-            console.error(discountError);
-            discountWarning = discountError.message || 'Discount could not be applied';
-            // Still pass code to checkout in case checkout accepts it
-            this.syncCheckoutDiscount(discountCode);
-          }
-        } else {
-          this.syncCheckoutDiscount('');
+        const discountResult = await this.syncPurchaseDiscount({
+          isSubscribe,
+          subscribeCode: discountCode,
+          onetimeCode: onetimeDiscountCode,
+          sectionIds,
+          fallbackState: addData,
+        });
+
+        this.renderCartContents(discountResult.uiState, cartDrawer, cartNotification, button);
+
+        if (discountResult.uiState?.total_discount > 0) {
+          this.paintDiscountFromCart(discountResult.uiState);
         }
 
-        this.renderCartContents(uiState, cartDrawer, cartNotification, button);
-
-        // Liquid cart sections often omit discount-code allocations; paint from cart JSON
-        if (uiState?.total_discount > 0) {
-          this.paintDiscountFromCart(uiState);
-        }
-
-        if (discountWarning) {
-          this.showCartMessage(discountWarning);
+        if (discountResult.warning) {
+          this.showCartMessage(discountResult.warning);
         }
 
         if (typeof publish === 'function' && typeof PUB_SUB_EVENTS !== 'undefined') {
@@ -309,6 +305,49 @@
         button.removeAttribute('aria-disabled');
         spinner?.classList.add('hidden');
       }
+    }
+
+    /**
+     * Apply the discount code for the selected purchase mode.
+     * Subscribe → subscribe code; One-time → one-time code (or clear if blank).
+     * Shopify codes are cart-level, so the active code replaces the previous one.
+     */
+    async syncPurchaseDiscount({ isSubscribe, subscribeCode, onetimeCode, sectionIds, fallbackState }) {
+      let uiState = fallbackState;
+      let warning = '';
+
+      if (isSubscribe && subscribeCode) {
+        try {
+          uiState = await this.applyDiscountCode(subscribeCode, sectionIds);
+          this.syncCheckoutDiscount(subscribeCode);
+        } catch (discountError) {
+          console.error(discountError);
+          warning = discountError.message || 'Discount could not be applied';
+          this.syncCheckoutDiscount(subscribeCode);
+        }
+        return { uiState, warning };
+      }
+
+      if (!isSubscribe && onetimeCode) {
+        try {
+          uiState = await this.applyDiscountCode(onetimeCode, sectionIds);
+          this.syncCheckoutDiscount(onetimeCode);
+        } catch (discountError) {
+          console.error(discountError);
+          warning = discountError.message || 'One-time discount could not be applied';
+          this.syncCheckoutDiscount(onetimeCode);
+        }
+        return { uiState, warning };
+      }
+
+      // One-time with no code → full base price (remove leftover subscribe code)
+      try {
+        uiState = await this.clearDiscountCodes(sectionIds);
+      } catch (clearError) {
+        console.warn(clearError);
+      }
+      this.syncCheckoutDiscount('');
+      return { uiState, warning };
     }
 
     /**
@@ -357,6 +396,42 @@
             'Fix Admin → Discounts → this code: set Purchase type to “One-time purchase” or “Both” ' +
             '(this store has no selling plans), allow these products/collections, remove min. requirements / customer limits, and ensure usage limit is not exhausted.'
         );
+      }
+
+      return data;
+    }
+
+    /**
+     * Remove discount codes from the cart (needed so one-time ATC is not under SUBSCRIBE25).
+     */
+    async clearDiscountCodes(sectionIds = []) {
+      const root = window.Shopify?.routes?.root || '/';
+      const body = { discount: '' };
+
+      if (sectionIds.length) {
+        body.sections = sectionIds;
+        body.sections_url = window.location.pathname;
+      }
+
+      const response = await fetch(window.routes?.cart_update_url || `${root}cart/update.js`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(body),
+      });
+
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        throw new Error('Unable to clear cart discount (invalid response)');
+      }
+
+      if (!response.ok || data.status) {
+        throw new Error(data.description || data.message || 'Unable to clear cart discount');
       }
 
       return data;
@@ -517,6 +592,7 @@
       this.mode = section.dataset.purchaseMode || 'subscribe';
       this.discountPercent = Number(section.dataset.discountPercent || 0);
       this.discountCode = (section.dataset.subscribeDiscountCode || '').trim();
+      this.onetimeDiscountCode = (section.dataset.onetimeDiscountCode || '').trim();
       this.buttonLabel = section.dataset.buttonLabel || 'Add to cart';
       this.subscribeLabel = section.dataset.subscribeLabel || 'Subscribe';
       this.onetimeLabel = section.dataset.onetimeLabel || 'One-time';
@@ -794,7 +870,11 @@
       const variantId = this.atc?.dataset.variantId;
       if (!variantId || this.atc.disabled) return;
 
-      const isSubscribe = this.mode === 'subscribe';
+      const activeMode = this.section.querySelector('[data-fp-mode].is-active')?.dataset.fpMode;
+      const isSubscribe = (activeMode || this.mode) === 'subscribe';
+      this.mode = isSubscribe ? 'subscribe' : 'onetime';
+      this.section.dataset.purchaseMode = this.mode;
+
       const cartDrawer = document.querySelector('cart-drawer');
       const cartNotification = document.querySelector('cart-notification');
       const cart = cartDrawer || cartNotification;
@@ -842,23 +922,18 @@
         }
 
         let uiState = addData;
-        let discountWarning = '';
-        if (isSubscribe && this.discountCode) {
-          try {
-            uiState = await this.applyDiscountCode(this.discountCode, sectionIds);
-            this.syncCheckoutDiscount(this.discountCode);
-          } catch (discountError) {
-            console.error(discountError);
-            discountWarning = discountError.message || 'Discount could not be applied';
-            this.syncCheckoutDiscount(this.discountCode);
-          }
-        } else {
-          this.syncCheckoutDiscount('');
-        }
+        const discountResult = await this.syncPurchaseDiscount({
+          isSubscribe,
+          subscribeCode: this.discountCode,
+          onetimeCode: this.onetimeDiscountCode,
+          sectionIds,
+          fallbackState: addData,
+        });
+        uiState = discountResult.uiState;
 
         this.renderCartContents(uiState, cartDrawer, cartNotification, this.atc);
         if (uiState?.total_discount > 0) this.paintDiscountFromCart(uiState);
-        if (discountWarning) this.showCartMessage(discountWarning);
+        if (discountResult.warning) this.showCartMessage(discountResult.warning);
 
         if (typeof publish === 'function' && typeof PUB_SUB_EVENTS !== 'undefined') {
           publish(PUB_SUB_EVENTS.cartUpdate, {
@@ -885,6 +960,14 @@
 
     applyDiscountCode(code, sectionIds) {
       return CustomFeaturedCollection.prototype.applyDiscountCode.call(this, code, sectionIds);
+    }
+
+    clearDiscountCodes(sectionIds) {
+      return CustomFeaturedCollection.prototype.clearDiscountCodes.call(this, sectionIds);
+    }
+
+    syncPurchaseDiscount(options) {
+      return CustomFeaturedCollection.prototype.syncPurchaseDiscount.call(this, options);
     }
 
     syncCheckoutDiscount(code) {

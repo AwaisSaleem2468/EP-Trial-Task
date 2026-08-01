@@ -20,6 +20,7 @@
   assign one_time_label = 'One-time'
   assign subscribe_label = 'Subscribe'
   assign subscribe_discount_code = ''
+  assign onetime_discount_code = ''
 
   if switch_block
     assign discount_percent = switch_block.settings.discount_percent
@@ -27,6 +28,7 @@
     assign one_time_label = switch_block.settings.one_time_label
     assign subscribe_label = switch_block.settings.subscribe_label
     assign subscribe_discount_code = switch_block.settings.subscribe_discount_code
+    assign onetime_discount_code = switch_block.settings.onetime_discount_code
   endif
 
   assign button_label = section.settings.button_label | default: 'Add to cart'
@@ -48,6 +50,7 @@
   data-purchase-mode="{{ default_mode }}"
   data-discount-percent="{{ discount_percent }}"
   data-subscribe-discount-code="{{ subscribe_discount_code | escape }}"
+  data-onetime-discount-code="{{ onetime_discount_code | escape }}"
   style="
     --ep-featured-bg: {{ active_bg }};
     --ep-eyebrow: {{ section.settings.eyebrow_color }};
@@ -390,7 +393,17 @@
           "type": "text",
           "id": "subscribe_discount_code",
           "label": "Subscribe discount code",
-          "info": "Required for cart discount (no app). Admin → Discounts → Amount off products/order → Discount code. Purchase type MUST be “One-time purchase” or “Both” (this theme does not use selling plans). Allow all / matching products, no customer-only limits."
+          "info": "Applied in Subscribe mode. Admin code with Purchase type One-time or Both."
+        },
+        {
+          "type": "text",
+          "id": "onetime_discount_code",
+          "label": "One-time discount code",
+          "info": "Optional. Applied in One-time mode (replaces subscribe code on the whole cart). Leave blank for full base price."
+        },
+        {
+          "type": "paragraph",
+          "content": "Shopify codes are cart-level. The last applied code affects every item in the cart."
         },
         {
           "type": "select",
