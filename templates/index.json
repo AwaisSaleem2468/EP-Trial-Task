@@ -56,7 +56,7 @@
             "subscribe_label": "Subscribe",
             "discount_percent": 25,
             "subscribe_discount_code": "SUBSCRIBE25",
-            "default_mode": "onetime"
+            "default_mode": "subscribe"
           }
         },
         "tab_QFVVqM": {
