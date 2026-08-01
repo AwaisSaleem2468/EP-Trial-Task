@@ -43,7 +43,9 @@
       this.nextBtn = section.querySelector('[data-ep-next]');
       this.mode = section.dataset.purchaseMode || 'subscribe';
       this.discountCode = (section.dataset.subscribeDiscountCode || '').trim();
-      this.activeTabId = this.tabs.find((tab) => tab.classList.contains('is-active'))?.dataset.tabId || this.tabs[0]?.dataset.tabId;
+      this.activeTabId =
+        this.tabs.find((tab) => tab.classList.contains('is-active'))?.dataset.tabId ||
+        this.tabs[0]?.dataset.tabId;
 
       this.onTabClick = this.onTabClick.bind(this);
       this.onModeClick = this.onModeClick.bind(this);
@@ -202,92 +204,80 @@
       const card = button.closest('[data-ep-card]');
       if (!card) return;
 
-      const variantId = Number(card.dataset.variantId);
+      const variantId = card.dataset.variantId;
       if (!variantId) return;
 
       const isSubscribe = this.mode === 'subscribe';
-      const cart = document.querySelector('cart-notification') || document.querySelector('cart-drawer');
+      const cartDrawer = document.querySelector('cart-drawer');
+      const cartNotification = document.querySelector('cart-notification');
+      const cart = cartDrawer || cartNotification;
       const spinner = button.querySelector('.custom-featured__atc-spinner');
       const label = button.querySelector('[data-ep-atc-label]');
       const originalLabel = label?.textContent;
       const root = window.Shopify?.routes?.root || '/';
+      const discountCode = (this.discountCode || this.section.dataset.subscribeDiscountCode || '').trim();
 
       button.classList.add('is-loading');
       button.setAttribute('aria-disabled', 'true');
       spinner?.classList.remove('hidden');
 
       try {
-        if (isSubscribe) {
-          if (!this.discountCode) {
-            throw new Error('Add a Subscribe discount code in the section settings');
-          }
-          await this.applyDiscountCode(this.discountCode);
-        } else {
-          await this.clearDiscountCode();
-        }
-
-        const payload = {
-          items: [
-            {
-              id: variantId,
-              quantity: 1,
-              properties: {
-                _purchase_option: isSubscribe ? 'subscribe' : 'one-time',
-              },
-            },
-          ],
-        };
-
-        if (cart?.getSectionsToRender) {
-          payload.sections = cart
-            .getSectionsToRender()
-            .map((section) => section.id)
-            .join(',');
-          payload.sections_url = window.location.pathname;
-          cart.setActiveElement?.(document.activeElement);
-        }
-
-        const response = await fetch(`${root}cart/add.js`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-          },
-          body: JSON.stringify(payload),
-        });
-
-        let data = await response.json();
-        if (data.status) {
-          throw new Error(data.description || data.message || 'Unable to add to cart');
-        }
-
-        // Refresh cart sections so discount totals render correctly in the drawer.
-        if (cart?.getSectionsToRender) {
-          const sectionIds = cart
-            .getSectionsToRender()
-            .map((section) => section.id)
-            .join(',');
-          const sectionsResponse = await fetch(
-            `${root}?sections=${encodeURIComponent(sectionIds)}&sections_url=${encodeURIComponent(window.location.pathname)}`
+        if (isSubscribe && !discountCode) {
+          throw new Error(
+            'Add discount code SUBSCRIBE25 in the section setting “Subscribe discount code”'
           );
-          if (sectionsResponse.ok) {
-            const sections = await sectionsResponse.json();
-            data = { ...data, sections };
+        }
+
+        const sectionIds = cart?.getSectionsToRender
+          ? cart.getSectionsToRender().map((section) => section.id)
+          : ['cart-drawer', 'cart-icon-bubble'];
+
+        // Add item (Dawn-compatible FormData request)
+        const formData = new FormData();
+        formData.append('id', variantId);
+        formData.append('quantity', '1');
+        formData.append(
+          'properties[_purchase_option]',
+          isSubscribe ? 'Subscribe & Save' : 'One-time'
+        );
+        formData.append('sections', sectionIds.join(','));
+        formData.append('sections_url', window.location.pathname);
+        cart?.setActiveElement?.(document.activeElement);
+
+        const config =
+          typeof fetchConfig === 'function'
+            ? fetchConfig('javascript')
+            : { method: 'POST', headers: { Accept: 'application/javascript' } };
+
+        config.headers['X-Requested-With'] = 'XMLHttpRequest';
+        delete config.headers['Content-Type'];
+        config.body = formData;
+
+        const addResponse = await fetch(window.routes?.cart_add_url || `${root}cart/add.js`, config);
+        const addData = await addResponse.json();
+
+        if (addData.status) {
+          throw new Error(addData.description || addData.message || 'Unable to add to cart');
+        }
+
+        // Apply subscribe discount via Cart Ajax API, then re-render sections
+        let uiState = addData;
+        if (isSubscribe && discountCode) {
+          try {
+            uiState = await this.applyDiscountCode(discountCode, sectionIds);
+          } catch (discountError) {
+            console.warn(discountError);
+            // Item was added; still refresh UI even if discount failed
           }
         }
 
-        if (cart?.renderContents) {
-          cart.renderContents(data);
-        } else if (window.routes?.cart_url) {
-          window.location = window.routes.cart_url;
-        }
+        this.renderCartContents(uiState, cartDrawer, cartNotification, button);
 
         if (typeof publish === 'function' && typeof PUB_SUB_EVENTS !== 'undefined') {
           publish(PUB_SUB_EVENTS.cartUpdate, {
             source: 'custom-featured',
             productVariantId: String(variantId),
-            cartData: data,
+            cartData: addData,
           });
         }
       } catch (error) {
@@ -296,7 +286,7 @@
           label.textContent = 'Error';
           setTimeout(() => {
             label.textContent = originalLabel;
-          }, 1600);
+          }, 1800);
         }
       } finally {
         button.classList.remove('is-loading');
@@ -305,29 +295,71 @@
       }
     }
 
-    async applyDiscountCode(code) {
+    /**
+     * Apply a Shopify Admin discount code via Cart Ajax API (/cart/update.js).
+     * Returns cart JSON (optionally with rendered sections).
+     */
+    async applyDiscountCode(code, sectionIds = []) {
       const root = window.Shopify?.routes?.root || '/';
-      await fetch(`${root}discount/${encodeURIComponent(code)}`, {
-        method: 'GET',
-        credentials: 'same-origin',
+      const body = { discount: code };
+
+      if (sectionIds.length) {
+        body.sections = sectionIds.join(',');
+        body.sections_url = window.location.pathname;
+      }
+
+      const response = await fetch(window.routes?.cart_update_url || `${root}cart/update.js`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(body),
       });
+
+      const data = await response.json();
+      if (!response.ok || data.status) {
+        throw new Error(data.description || data.message || `Unable to apply discount ${code}`);
+      }
+
+      return data;
     }
 
-    async clearDiscountCode() {
-      const root = window.Shopify?.routes?.root || '/';
-      try {
-        await fetch(`${root}cart/update.js`, {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-          },
-          body: JSON.stringify({ discount: '' }),
-        });
-      } catch (error) {
-        // Native Ajax cart cannot always clear discounts; checkout can still remove them.
-        console.warn('Unable to clear discount code', error);
+    /**
+     * Paint cart drawer + icon bubble from Cart API section HTML (Dawn pattern).
+     */
+    renderCartContents(parsedState, cartDrawer, cartNotification, trigger) {
+      const cart = cartDrawer || cartNotification;
+
+      if (cartDrawer?.classList.contains('is-empty')) {
+        cartDrawer.classList.remove('is-empty');
+      }
+
+      if (cart?.renderContents && parsedState?.sections) {
+        cart.renderContents(parsedState);
+        // Ensure bubble updates even if drawer paint path skips it
+        this.updateCartIconBubble(parsedState.sections['cart-icon-bubble']);
+        return;
+      }
+
+      // Fallback if theme cart component is unavailable
+      this.updateCartIconBubble(parsedState?.sections?.['cart-icon-bubble']);
+      cartDrawer?.open?.(trigger);
+    }
+
+    /**
+     * Dawn puts cart-icon-bubble section inner HTML into #cart-icon-bubble (the header <a>).
+     */
+    updateCartIconBubble(sectionHtml) {
+      if (!sectionHtml) return;
+
+      const target = document.getElementById('cart-icon-bubble');
+      if (!target) return;
+
+      const parsed = new DOMParser().parseFromString(sectionHtml, 'text/html');
+      const source = parsed.querySelector('.shopify-section') || parsed.body;
+      if (source) {
+        target.innerHTML = source.innerHTML;
       }
     }
   }
