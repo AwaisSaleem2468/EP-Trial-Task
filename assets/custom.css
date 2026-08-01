@@ -1101,18 +1101,15 @@ body{
 }
 
 .custom-fp__best-tag {
-  position: absolute;
-  top: 0;
-  left: 1rem;
-  transform: translateY(-50%);
-  padding: 0.35rem 0.8rem;
-  border-radius: 999px;
-  background: var(--fp-accent, #1f3d2b);
-  color: #fff;
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+    padding: .4rem 1rem;
+    border-radius: 6px;
+    background: var(--fp-accent, #1f3d2b);
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    margin-bottom: 5px;
 }
 
 .custom-fp__size-title {
