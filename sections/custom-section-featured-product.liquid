@@ -1,0 +1,850 @@
+{%- liquid
+  assign product = section.settings.product
+  assign discount_percent = section.settings.discount_percent | default: 25
+  assign discount_code = section.settings.subscribe_discount_code | default: 'SUBSCRIBE25'
+  assign default_mode = section.settings.default_mode | default: 'subscribe'
+  assign format_option_name = section.settings.format_option_name | default: 'Format' | strip | downcase
+  assign flavor_option_name = section.settings.flavor_option_name | default: 'Flavor' | strip | downcase
+  assign size_option_name = section.settings.size_option_name | default: 'Size' | strip | downcase
+
+  assign current_variant = product.selected_or_first_available_variant
+  if product == blank
+    assign current_variant = nil
+  endif
+
+  assign format_option = nil
+  assign flavor_option = nil
+  assign size_option = nil
+  assign format_index = -1
+  assign flavor_index = -1
+  assign size_index = -1
+
+  if product != blank
+    for option in product.options_with_values
+      assign opt_name = option.name | strip | downcase
+      assign opt_index = forloop.index0
+      if format_index == -1
+        if opt_name == format_option_name or opt_name contains 'format' or opt_name contains 'packaging'
+          assign format_option = option
+          assign format_index = opt_index
+        endif
+      endif
+      if flavor_index == -1
+        if opt_name == flavor_option_name or opt_name contains 'flavor' or opt_name contains 'flavour'
+          assign flavor_option = option
+          assign flavor_index = opt_index
+        endif
+      endif
+      if size_index == -1
+        if opt_name == size_option_name or opt_name contains 'size' or opt_name contains 'month'
+          assign size_option = option
+          assign size_index = opt_index
+        endif
+      endif
+    endfor
+  endif
+
+  assign selected_format = blank
+  assign selected_flavor = blank
+  assign selected_size = blank
+  if current_variant != blank
+    if format_index == 0
+      assign selected_format = current_variant.option1
+    elsif format_index == 1
+      assign selected_format = current_variant.option2
+    elsif format_index == 2
+      assign selected_format = current_variant.option3
+    endif
+    if flavor_index == 0
+      assign selected_flavor = current_variant.option1
+    elsif flavor_index == 1
+      assign selected_flavor = current_variant.option2
+    elsif flavor_index == 2
+      assign selected_flavor = current_variant.option3
+    endif
+    if size_index == 0
+      assign selected_size = current_variant.option1
+    elsif size_index == 1
+      assign selected_size = current_variant.option2
+    elsif size_index == 2
+      assign selected_size = current_variant.option3
+    endif
+  endif
+
+  assign rating_value = blank
+  assign rating_stars = blank
+  assign review_count = blank
+  assign rating_scale = 5
+
+  if product != blank
+    if product.metafields.custom.product_rating != blank
+      assign rating_value = product.metafields.custom.product_rating.value
+    endif
+    if product.metafields.custom.product_rating_stars != blank
+      assign rating_stars = product.metafields.custom.product_rating_stars.value | plus: 0
+    elsif rating_value != blank
+      assign rating_stars = rating_value | round
+    endif
+    if product.metafields.custom.product_review_count != blank
+      assign review_count = product.metafields.custom.product_review_count.value
+    endif
+  endif
+
+  if rating_stars != blank
+    if rating_stars > rating_scale
+      assign rating_stars = rating_scale
+    endif
+    if rating_stars < 0
+      assign rating_stars = 0
+    endif
+  endif
+
+  assign product_title = section.settings.heading
+  if product_title == blank and product != blank
+    assign product_title = product.title
+  endif
+
+  assign product_desc = section.settings.description
+  if product_desc == blank and product != blank
+    assign product_desc = product.description
+  endif
+-%}
+
+<section
+  id="CustomFeaturedProduct-{{ section.id }}"
+  class="custom-fp"
+  data-custom-featured-product
+  data-section-id="{{ section.id }}"
+  data-purchase-mode="{{ default_mode }}"
+  data-discount-percent="{{ discount_percent }}"
+  data-subscribe-discount-code="{{ discount_code | escape }}"
+  data-button-label="{{ section.settings.button_label | escape }}"
+  data-subscribe-label="{{ section.settings.subscribe_label | escape }}"
+  data-onetime-label="{{ section.settings.onetime_label | escape }}"
+  data-servings-label="{{ section.settings.servings_label | escape }}"
+  data-day-label="{{ section.settings.day_label | escape }}"
+  data-best-value-label="{{ section.settings.best_value_label | escape }}"
+  data-money-format="{{ shop.money_format | escape }}"
+  style="
+    --fp-bg: {{ section.settings.background_color }};
+    --fp-accent: {{ section.settings.accent_color }};
+    --fp-accent-soft: {{ section.settings.accent_soft }};
+    --fp-text: {{ section.settings.text_color }};
+    --fp-muted: {{ section.settings.muted_color }};
+    --fp-border: {{ section.settings.border_color }};
+    --fp-badge: {{ section.settings.badge_color }};
+    --fp-save: {{ section.settings.save_color }};
+    --fp-star: {{ section.settings.star_color }};
+    --fp-btn-bg: {{ section.settings.button_bg }};
+    --fp-btn-text: {{ section.settings.button_text }};
+    --fp-pad-top: {{ section.settings.padding_top }}px;
+    --fp-pad-bottom: {{ section.settings.padding_bottom }}px;
+  "
+>
+  <div class="custom-fp__inner page-width">
+    {%- if product == blank -%}
+      <div class="custom-fp__empty">
+        <p>Select a product in the theme editor to display this section.</p>
+      </div>
+    {%- else -%}
+      <div class="custom-fp__grid">
+        <div class="custom-fp__gallery">
+          <div class="custom-fp__main-media">
+            {%- if product.featured_media != blank -%}
+              {{
+                product.featured_media
+                | image_url: width: 1600
+                | image_tag:
+                  loading: 'eager',
+                  widths: '400, 600, 800, 1000, 1200, 1600',
+                  sizes: '(min-width: 990px) 48vw, 100vw',
+                  class: 'custom-fp__main-image',
+                  alt: product.featured_media.alt | default: product.title
+              }}
+            {%- else -%}
+              {{ 'product-1' | placeholder_svg_tag: 'custom-fp__main-image placeholder' }}
+            {%- endif -%}
+          </div>
+
+          {%- if product.media.size > 1 -%}
+            <div class="custom-fp__thumbs" role="list" data-fp-thumbs>
+              {%- for media in product.media -%}
+                {%- if media.media_type == 'image' -%}
+                  <button
+                    type="button"
+                    class="custom-fp__thumb{% if forloop.first %} is-active{% endif %}"
+                    role="listitem"
+                    data-fp-thumb
+                    data-media-id="{{ media.id }}"
+                    data-media-src="{{ media | image_url: width: 1600 }}"
+                    data-media-srcset="{{ media | image_url: width: 400 }} 400w, {{ media | image_url: width: 800 }} 800w, {{ media | image_url: width: 1200 }} 1200w, {{ media | image_url: width: 1600 }} 1600w"
+                    data-media-alt="{{ media.alt | default: product.title | escape }}"
+                    aria-label="View image {{ forloop.index }}"
+                    aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}"
+                  >
+                    {{
+                      media
+                      | image_url: width: 400
+                      | image_tag:
+                        loading: 'lazy',
+                        widths: '160, 240, 400',
+                        sizes: '(min-width: 990px) 11vw, 22vw',
+                        alt: media.alt | default: product.title
+                    }}
+                  </button>
+                {%- endif -%}
+              {%- endfor -%}
+            </div>
+          {%- endif -%}
+        </div>
+
+        <div class="custom-fp__info">
+          {%- if rating_stars != blank or rating_value != blank or review_count != blank -%}
+            <div class="custom-fp__rating" aria-label="Product rating">
+              {%- if rating_stars != blank -%}
+                <span class="custom-fp__stars" aria-hidden="true">
+                  {%- for i in (1..rating_scale) -%}
+                    <span class="custom-fp__star{% if i <= rating_stars %} is-filled{% endif %}">★</span>
+                  {%- endfor -%}
+                </span>
+              {%- endif -%}
+              <span class="custom-fp__rating-meta">
+                {%- if rating_value != blank -%}
+                  <span data-fp-rating-value>{{ rating_value }}</span>
+                {%- endif -%}
+                {%- if review_count != blank -%}
+                  <span>· {{ review_count | escape }} {{ section.settings.reviews_label | escape }}</span>
+                {%- endif -%}
+                {%- if current_variant.available -%}
+                  <span>· {{ section.settings.in_stock_label | escape }}</span>
+                {%- endif -%}
+              </span>
+            </div>
+          {%- endif -%}
+
+          {%- if product_title != blank -%}
+            <h2 class="custom-fp__title">{{ product_title | escape }}</h2>
+          {%- endif -%}
+
+          {%- if product_desc != blank -%}
+            <div class="custom-fp__desc rte">{{ product_desc }}</div>
+          {%- endif -%}
+
+          {%- if format_option != blank -%}
+            <div class="custom-fp__format" role="group" aria-label="{{ format_option.name | escape }}" data-fp-format>
+              {%- for value in format_option.values -%}
+                <button
+                  type="button"
+                  class="custom-fp__format-btn{% if selected_format == value %} is-active{% endif %}"
+                  data-fp-option
+                  data-option-index="{{ format_index }}"
+                  data-option-value="{{ value | escape }}"
+                  aria-pressed="{% if selected_format == value %}true{% else %}false{% endif %}"
+                >
+                  {{ value | escape }}
+                </button>
+              {%- endfor -%}
+            </div>
+          {%- endif -%}
+
+          {%- if flavor_option != blank -%}
+            <div class="custom-fp__fieldset">
+              <p class="custom-fp__label">
+                <span class="custom-fp__step">1</span>
+                {{ section.settings.flavor_heading | escape }}
+              </p>
+              <div class="custom-fp__flavors" role="group" aria-label="{{ flavor_option.name | escape }}" data-fp-flavors>
+                {%- for value in flavor_option.values -%}
+                  {%- liquid
+                    assign flavor_color = '#8a8a8a'
+                    assign flavor_badge = blank
+                    for variant in product.variants
+                      assign variant_flavor = blank
+                      if flavor_index == 0
+                        assign variant_flavor = variant.option1
+                      elsif flavor_index == 1
+                        assign variant_flavor = variant.option2
+                      elsif flavor_index == 2
+                        assign variant_flavor = variant.option3
+                      endif
+                      if variant_flavor == value
+                        if variant.metafields.custom.flavor_color != blank
+                          if variant.metafields.custom.flavor_color.type == 'color'
+                            assign flavor_color = variant.metafields.custom.flavor_color.value | color_to_hex
+                          else
+                            assign flavor_color = variant.metafields.custom.flavor_color.value
+                          endif
+                        endif
+                        if variant.metafields.custom.badge != blank
+                          assign flavor_badge = variant.metafields.custom.badge.value
+                        endif
+                        break
+                      endif
+                    endfor
+                  -%}
+                  <button
+                    type="button"
+                    class="custom-fp__flavor{% if selected_flavor == value %} is-active{% endif %}"
+                    data-fp-option
+                    data-option-index="{{ flavor_index }}"
+                    data-option-value="{{ value | escape }}"
+                    aria-pressed="{% if selected_flavor == value %}true{% else %}false{% endif %}"
+                  >
+                    <span class="custom-fp__flavor-dot" style="--fp-flavor-dot: {{ flavor_color }};"></span>
+                    <span class="custom-fp__flavor-name">{{ value | escape }}</span>
+                    {%- if flavor_badge != blank -%}
+                      <span class="custom-fp__flavor-badge">{{ flavor_badge | escape }}</span>
+                    {%- endif -%}
+                  </button>
+                {%- endfor -%}
+              </div>
+            </div>
+          {%- endif -%}
+
+          {%- if size_option != blank -%}
+            <div class="custom-fp__fieldset">
+              <p class="custom-fp__label">
+                <span class="custom-fp__step">2</span>
+                {{ section.settings.size_heading | escape }}
+              </p>
+              <div class="custom-fp__sizes" role="group" aria-label="{{ size_option.name | escape }}" data-fp-sizes>
+                {%- for value in size_option.values -%}
+                  {%- liquid
+                    assign size_variant = nil
+                    for variant in product.variants
+                      assign variant_format = blank
+                      assign variant_flavor = blank
+                      assign variant_size = blank
+                      if format_index == 0
+                        assign variant_format = variant.option1
+                      elsif format_index == 1
+                        assign variant_format = variant.option2
+                      elsif format_index == 2
+                        assign variant_format = variant.option3
+                      endif
+                      if flavor_index == 0
+                        assign variant_flavor = variant.option1
+                      elsif flavor_index == 1
+                        assign variant_flavor = variant.option2
+                      elsif flavor_index == 2
+                        assign variant_flavor = variant.option3
+                      endif
+                      if size_index == 0
+                        assign variant_size = variant.option1
+                      elsif size_index == 1
+                        assign variant_size = variant.option2
+                      elsif size_index == 2
+                        assign variant_size = variant.option3
+                      endif
+
+                      assign matches_format = true
+                      assign matches_flavor = true
+                      if format_option != blank and selected_format != blank and variant_format != selected_format
+                        assign matches_format = false
+                      endif
+                      if flavor_option != blank and selected_flavor != blank and variant_flavor != selected_flavor
+                        assign matches_flavor = false
+                      endif
+                      if matches_format and matches_flavor and variant_size == value
+                        assign size_variant = variant
+                        break
+                      endif
+                    endfor
+
+                    if size_variant == blank
+                      for variant in product.variants
+                        assign variant_size = blank
+                        if size_index == 0
+                          assign variant_size = variant.option1
+                        elsif size_index == 1
+                          assign variant_size = variant.option2
+                        elsif size_index == 2
+                          assign variant_size = variant.option3
+                        endif
+                        if variant_size == value
+                          assign size_variant = variant
+                          break
+                        endif
+                      endfor
+                    endif
+
+                    assign servings = 0
+                    assign best_value = false
+                    if size_variant != blank
+                      if size_variant.metafields.custom.servings != blank
+                        assign servings = size_variant.metafields.custom.servings.value | plus: 0
+                      endif
+                      if size_variant.metafields.custom.best_value != blank and size_variant.metafields.custom.best_value.value
+                        assign best_value = true
+                      endif
+                    endif
+
+                    assign display_price = size_variant.price | default: 0
+                    if default_mode == 'subscribe' and discount_percent > 0
+                      assign save_cents = display_price | times: discount_percent | divided_by: 100
+                      assign display_price = display_price | minus: save_cents
+                    endif
+
+                    assign per_day = 0
+                    if servings > 0
+                      assign per_day = display_price | divided_by: servings
+                    endif
+                  -%}
+                  <button
+                    type="button"
+                    class="custom-fp__size{% if selected_size == value %} is-active{% endif %}{% if best_value %} is-best{% endif %}"
+                    data-fp-option
+                    data-fp-size
+                    data-option-index="{{ size_index }}"
+                    data-option-value="{{ value | escape }}"
+                    data-servings="{{ servings }}"
+                    aria-pressed="{% if selected_size == value %}true{% else %}false{% endif %}"
+                  >
+                    {%- if best_value -%}
+                      <span class="custom-fp__best-tag">{{ section.settings.best_value_label | escape }}</span>
+                    {%- endif -%}
+                    <span class="custom-fp__size-title">{{ value | escape }}</span>
+                    {%- if servings > 0 -%}
+                      <span class="custom-fp__size-servings" data-fp-size-servings>
+                        {{- servings }} {{ section.settings.servings_label | escape -}}
+                      </span>
+                    {%- endif -%}
+                    {%- if per_day > 0 -%}
+                      <span class="custom-fp__size-day" data-fp-size-day>
+                        {{- per_day | money }} / {{ section.settings.day_label | escape -}}
+                      </span>
+                    {%- endif -%}
+                  </button>
+                {%- endfor -%}
+              </div>
+            </div>
+          {%- endif -%}
+
+          <div class="custom-fp__fieldset">
+            <p class="custom-fp__label">
+              <span class="custom-fp__step">3</span>
+              {{ section.settings.purchase_heading | escape }}
+            </p>
+
+            <div class="custom-fp__purchase" role="radiogroup" aria-label="{{ section.settings.purchase_heading | escape }}" data-fp-purchase>
+              <button
+                type="button"
+                class="custom-fp__plan custom-fp__plan--subscribe{% if default_mode == 'subscribe' %} is-active{% endif %}"
+                data-fp-mode="subscribe"
+                aria-pressed="{% if default_mode == 'subscribe' %}true{% else %}false{% endif %}"
+              >
+                <span class="custom-fp__plan-top">
+                  <span class="custom-fp__plan-title">
+                    {{ section.settings.subscribe_label | escape }}
+                    {%- if discount_percent > 0 -%}
+                      {{ discount_percent }}%
+                    {%- endif -%}
+                  </span>
+                  {%- if section.settings.popular_badge != blank -%}
+                    <span class="custom-fp__popular">{{ section.settings.popular_badge | escape }}</span>
+                  {%- endif -%}
+                </span>
+                <span class="custom-fp__plan-prices">
+                  <span class="custom-fp__plan-price" data-fp-subscribe-price>
+                    {%- liquid
+                      assign base = current_variant.price
+                      assign save_cents = base | times: discount_percent | divided_by: 100
+                      assign sub_price = base | minus: save_cents
+                    -%}
+                    {{ sub_price | money_without_trailing_zeros }}
+                  </span>
+                  <span class="custom-fp__plan-compare" data-fp-compare-price>
+                    {%- if current_variant.compare_at_price > current_variant.price -%}
+                      {{ current_variant.compare_at_price | money_without_trailing_zeros }}
+                    {%- else -%}
+                      {{ current_variant.price | money_without_trailing_zeros }}
+                    {%- endif -%}
+                  </span>
+                  <span class="custom-fp__plan-save" data-fp-save-row></span>
+                </span>
+                {%- if section.settings.subscribe_perks != blank -%}
+                  <ul class="custom-fp__perks">
+                    {%- assign perk_lines = section.settings.subscribe_perks | newline_to_br | split: '<br />' -%}
+                    {%- for perk in perk_lines -%}
+                      {%- assign perk_text = perk | strip -%}
+                      {%- if perk_text != blank -%}
+                        <li>
+                          <span class="custom-fp__check" aria-hidden="true"></span>
+                          <span>{{ perk_text | escape }}</span>
+                        </li>
+                      {%- endif -%}
+                    {%- endfor -%}
+                  </ul>
+                {%- endif -%}
+              </button>
+
+              <button
+                type="button"
+                class="custom-fp__plan custom-fp__plan--onetime{% if default_mode == 'onetime' %} is-active{% endif %}"
+                data-fp-mode="onetime"
+                aria-pressed="{% if default_mode == 'onetime' %}true{% else %}false{% endif %}"
+              >
+                <span class="custom-fp__plan-title">{{ section.settings.onetime_label | escape }}</span>
+                <span class="custom-fp__plan-prices custom-fp__plan-prices--simple">
+                  <span class="custom-fp__plan-price" data-fp-onetime-price>
+                    {{ current_variant.price | money_without_trailing_zeros }}
+                  </span>
+                  <span class="custom-fp__plan-day" data-fp-onetime-day></span>
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="custom-fp__atc"
+            data-fp-atc
+            data-variant-id="{{ current_variant.id }}"
+            {% unless current_variant.available %}disabled{% endunless %}
+          >
+            <span class="custom-fp__atc-label" data-fp-atc-label>
+              {{ section.settings.button_label | escape }}
+            </span>
+            <span class="custom-fp__atc-spinner hidden" aria-hidden="true"></span>
+          </button>
+
+          {%- if section.settings.trust_badges != blank -%}
+            <ul class="custom-fp__trust">
+              {%- assign trust_lines = section.settings.trust_badges | newline_to_br | split: '<br />' -%}
+              {%- for line in trust_lines -%}
+                {%- assign trust_text = line | strip -%}
+                {%- if trust_text != blank -%}
+                  <li>
+                    <span class="custom-fp__check" aria-hidden="true"></span>
+                    <span>{{ trust_text | escape }}</span>
+                  </li>
+                {%- endif -%}
+              {%- endfor -%}
+            </ul>
+          {%- endif -%}
+        </div>
+      </div>
+
+      <script type="application/json" data-fp-variants>
+        [
+          {%- for variant in product.variants -%}
+            {%- liquid
+              assign v_flavor_color = blank
+              if variant.metafields.custom.flavor_color != blank
+                if variant.metafields.custom.flavor_color.type == 'color'
+                  assign v_flavor_color = variant.metafields.custom.flavor_color.value | color_to_hex
+                else
+                  assign v_flavor_color = variant.metafields.custom.flavor_color.value
+                endif
+              endif
+              assign v_badge = blank
+              if variant.metafields.custom.badge != blank
+                assign v_badge = variant.metafields.custom.badge.value
+              endif
+              assign v_servings = 0
+              if variant.metafields.custom.servings != blank
+                assign v_servings = variant.metafields.custom.servings.value | plus: 0
+              endif
+              assign v_best = false
+              if variant.metafields.custom.best_value != blank and variant.metafields.custom.best_value.value
+                assign v_best = true
+              endif
+            -%}
+            {
+              "id": {{ variant.id | json }},
+              "available": {{ variant.available | json }},
+              "price": {{ variant.price | json }},
+              "compare_at_price": {{ variant.compare_at_price | default: variant.price | json }},
+              "options": {{ variant.options | json }},
+              "featured_image": {% if variant.featured_image %}{{ variant.featured_image | image_url: width: 1600 | json }}{% else %}null{% endif %},
+              "servings": {{ v_servings | json }},
+              "flavor_color": {{ v_flavor_color | json }},
+              "badge": {{ v_badge | json }},
+              "best_value": {{ v_best | json }}
+            }{%- unless forloop.last -%},{%- endunless -%}
+          {%- endfor -%}
+        ]
+      </script>
+
+      <script type="application/json" data-fp-media>
+        [
+          {%- assign media_first = true -%}
+          {%- for media in product.media -%}
+            {%- if media.media_type == 'image' -%}
+              {%- unless media_first -%},{%- endunless -%}
+              {
+                "id": {{ media.id | json }},
+                "src": {{ media | image_url: width: 1600 | json }},
+                "alt": {{ media.alt | default: product.title | json }}
+              }
+              {%- assign media_first = false -%}
+            {%- endif -%}
+          {%- endfor -%}
+        ]
+      </script>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Featured Product",
+  "tag": "section",
+  "class": "section-custom-featured-product",
+  "settings": [
+    {
+      "type": "product",
+      "id": "product",
+      "label": "Product"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "info": "Defaults to product title if blank."
+    },
+    {
+      "type": "richtext",
+      "id": "description",
+      "label": "Description",
+      "info": "Defaults to product description if blank."
+    },
+    {
+      "type": "header",
+      "content": "Option names"
+    },
+    {
+      "type": "text",
+      "id": "format_option_name",
+      "label": "Format option name",
+      "default": "Format"
+    },
+    {
+      "type": "text",
+      "id": "flavor_option_name",
+      "label": "Flavor option name",
+      "default": "Flavor"
+    },
+    {
+      "type": "text",
+      "id": "size_option_name",
+      "label": "Size option name",
+      "default": "Size"
+    },
+    {
+      "type": "header",
+      "content": "Labels"
+    },
+    {
+      "type": "text",
+      "id": "flavor_heading",
+      "label": "Flavor heading",
+      "default": "Select your flavor"
+    },
+    {
+      "type": "text",
+      "id": "size_heading",
+      "label": "Size heading",
+      "default": "Select your size"
+    },
+    {
+      "type": "text",
+      "id": "purchase_heading",
+      "label": "Purchase heading",
+      "default": "Purchase type"
+    },
+    {
+      "type": "text",
+      "id": "best_value_label",
+      "label": "Best value badge",
+      "default": "BEST VALUE"
+    },
+    {
+      "type": "text",
+      "id": "servings_label",
+      "label": "Servings label",
+      "default": "servings"
+    },
+    {
+      "type": "text",
+      "id": "day_label",
+      "label": "Per-day label",
+      "default": "day"
+    },
+    {
+      "type": "text",
+      "id": "reviews_label",
+      "label": "Reviews label",
+      "default": "reviews"
+    },
+    {
+      "type": "text",
+      "id": "in_stock_label",
+      "label": "In stock label",
+      "default": "In stock"
+    },
+    {
+      "type": "header",
+      "content": "Purchase options"
+    },
+    {
+      "type": "text",
+      "id": "subscribe_label",
+      "label": "Autoship label",
+      "default": "Autoship & Save"
+    },
+    {
+      "type": "text",
+      "id": "onetime_label",
+      "label": "One-time label",
+      "default": "One-time purchase"
+    },
+    {
+      "type": "text",
+      "id": "popular_badge",
+      "label": "Popular badge",
+      "default": "MOST POPULAR"
+    },
+    {
+      "type": "textarea",
+      "id": "subscribe_perks",
+      "label": "Autoship perks",
+      "default": "Free shipping every order\nPause, edit or cancel anytime\nVIP perks"
+    },
+    {
+      "type": "range",
+      "id": "discount_percent",
+      "min": 0,
+      "max": 70,
+      "step": 1,
+      "unit": "%",
+      "label": "Autoship discount",
+      "default": 25
+    },
+    {
+      "type": "text",
+      "id": "subscribe_discount_code",
+      "label": "Subscribe discount code",
+      "default": "SUBSCRIBE25",
+      "info": "Admin discount code. Purchase type should be One-time or Both."
+    },
+    {
+      "type": "select",
+      "id": "default_mode",
+      "label": "Default purchase type",
+      "options": [
+        { "value": "subscribe", "label": "Autoship" },
+        { "value": "onetime", "label": "One-time" }
+      ],
+      "default": "subscribe"
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Add to cart label prefix",
+      "default": "Add to cart"
+    },
+    {
+      "type": "textarea",
+      "id": "trust_badges",
+      "label": "Trust badges",
+      "default": "30-day money-back\nShips in 1 business day\n100K+ customers\nHSA/FSA eligible"
+    },
+    {
+      "type": "header",
+      "content": "Colors"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background",
+      "default": "#f7f1ea"
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "Accent",
+      "default": "#1f3d2b"
+    },
+    {
+      "type": "color",
+      "id": "accent_soft",
+      "label": "Accent soft",
+      "default": "#e7f0e8"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text",
+      "default": "#1a1a1a"
+    },
+    {
+      "type": "color",
+      "id": "muted_color",
+      "label": "Muted text",
+      "default": "#6b6b6b"
+    },
+    {
+      "type": "color",
+      "id": "border_color",
+      "label": "Border",
+      "default": "#d9d2c8"
+    },
+    {
+      "type": "color",
+      "id": "badge_color",
+      "label": "NEW badge",
+      "default": "#c6613f"
+    },
+    {
+      "type": "color",
+      "id": "save_color",
+      "label": "Savings text",
+      "default": "#c45c3e"
+    },
+    {
+      "type": "color",
+      "id": "star_color",
+      "label": "Stars",
+      "default": "#c6613f"
+    },
+    {
+      "type": "color",
+      "id": "button_bg",
+      "label": "Button background",
+      "default": "#1f3d2b"
+    },
+    {
+      "type": "color",
+      "id": "button_text",
+      "label": "Button text",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding top",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding bottom",
+      "default": 48
+    }
+  ],
+  "presets": [
+    {
+      "name": "Featured Product"
+    }
+  ]
+}
+{% endschema %}

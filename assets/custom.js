@@ -508,6 +508,414 @@
     }
   }
 
+  class CustomFeaturedProduct {
+    /**
+     * @param {HTMLElement} section
+     */
+    constructor(section) {
+      this.section = section;
+      this.mode = section.dataset.purchaseMode || 'subscribe';
+      this.discountPercent = Number(section.dataset.discountPercent || 0);
+      this.discountCode = (section.dataset.subscribeDiscountCode || '').trim();
+      this.buttonLabel = section.dataset.buttonLabel || 'Add to cart';
+      this.subscribeLabel = section.dataset.subscribeLabel || 'Subscribe';
+      this.onetimeLabel = section.dataset.onetimeLabel || 'One-time';
+      this.servingsLabel = section.dataset.servingsLabel || 'servings';
+      this.dayLabel = section.dataset.dayLabel || 'day';
+      this.variants = this.parseJson('[data-fp-variants]', []);
+      this.media = this.parseJson('[data-fp-media]', []);
+      this.atc = section.querySelector('[data-fp-atc]');
+      this.mainImage =
+        section.querySelector('[data-fp-main-image]') || section.querySelector('.custom-fp__main-image');
+      this.selected = this.getInitialSelection();
+      this.manualGallery = false;
+
+      this.onOptionClick = this.onOptionClick.bind(this);
+      this.onModeClick = this.onModeClick.bind(this);
+      this.onThumbClick = this.onThumbClick.bind(this);
+      this.onAtcClick = this.onAtcClick.bind(this);
+
+      this.bind();
+      this.syncUI();
+    }
+
+    parseJson(selector, fallback) {
+      const node = this.section.querySelector(selector);
+      if (!node) return fallback;
+      try {
+        return JSON.parse(node.textContent);
+      } catch (error) {
+        console.warn('Featured product JSON parse failed', error);
+        return fallback;
+      }
+    }
+
+    getInitialSelection() {
+      const activeButtons = [...this.section.querySelectorAll('[data-fp-option].is-active')];
+      const selected = {};
+      activeButtons.forEach((btn) => {
+        selected[btn.dataset.optionIndex] = btn.dataset.optionValue;
+      });
+
+      const variant =
+        this.findVariant(selected) ||
+        this.variants.find((item) => item.available) ||
+        this.variants[0];
+
+      if (variant?.options) {
+        variant.options.forEach((value, index) => {
+          selected[index] = value;
+        });
+      }
+
+      return { options: selected, variant };
+    }
+
+    bind() {
+      this.section.querySelectorAll('[data-fp-option]').forEach((btn) => {
+        btn.addEventListener('click', this.onOptionClick);
+      });
+      this.section.querySelectorAll('[data-fp-mode]').forEach((btn) => {
+        btn.addEventListener('click', this.onModeClick);
+      });
+      this.section.querySelectorAll('[data-fp-thumb]').forEach((btn) => {
+        btn.addEventListener('click', this.onThumbClick);
+      });
+      this.atc?.addEventListener('click', this.onAtcClick);
+    }
+
+    onOptionClick(event) {
+      const button = event.currentTarget;
+      if (button.classList.contains('is-unavailable')) return;
+
+      const index = button.dataset.optionIndex;
+      const value = button.dataset.optionValue;
+      this.selected.options[index] = value;
+
+      const variant = this.findVariant(this.selected.options);
+      if (!variant) return;
+
+      this.selected.variant = variant;
+      variant.options.forEach((opt, i) => {
+        this.selected.options[i] = opt;
+      });
+      this.manualGallery = false;
+      this.syncUI();
+    }
+
+    onModeClick(event) {
+      const mode = event.currentTarget.dataset.fpMode;
+      if (!mode || mode === this.mode) return;
+      this.mode = mode;
+      this.section.dataset.purchaseMode = mode;
+      this.syncUI();
+    }
+
+    onThumbClick(event) {
+      const button = event.currentTarget.closest('[data-fp-thumb]');
+      if (!button) return;
+
+      const src = button.dataset.mediaSrc;
+      if (!src) return;
+
+      this.manualGallery = true;
+      this.setMainImage({
+        src,
+        srcset: button.dataset.mediaSrcset || '',
+        alt: button.dataset.mediaAlt || '',
+      });
+
+      this.section.querySelectorAll('[data-fp-thumb]').forEach((thumb) => {
+        const active = thumb === button;
+        thumb.classList.toggle('is-active', active);
+        thumb.setAttribute('aria-pressed', String(active));
+      });
+    }
+
+    setMainImage({ src, srcset = '', alt = '' }) {
+      if (!this.mainImage || !src) return;
+
+      this.mainImage.src = src;
+      if (srcset) {
+        this.mainImage.setAttribute('srcset', srcset);
+      } else {
+        this.mainImage.removeAttribute('srcset');
+      }
+      if (alt) this.mainImage.alt = alt;
+    }
+
+    setActiveThumbBySrc(src) {
+      if (!src) return;
+      const path = String(src).split('?')[0];
+      this.section.querySelectorAll('[data-fp-thumb]').forEach((thumb) => {
+        const thumbPath = String(thumb.dataset.mediaSrc || '').split('?')[0];
+        const active = thumbPath === path || String(thumb.dataset.mediaSrc) === String(src);
+        thumb.classList.toggle('is-active', active);
+        thumb.setAttribute('aria-pressed', String(active));
+      });
+    }
+
+    findVariant(selectedOptions) {
+      return this.variants.find((variant) =>
+        variant.options.every((value, index) => {
+          if (selectedOptions[index] == null || selectedOptions[index] === '') return true;
+          return variant.options[index] === selectedOptions[index];
+        })
+      );
+    }
+
+    getPriceForMode(variant, mode = this.mode) {
+      const base = Number(variant?.price || 0);
+      if (mode === 'subscribe' && this.discountPercent > 0) {
+        return Math.round(base - (base * this.discountPercent) / 100);
+      }
+      return base;
+    }
+
+    formatMoney(cents) {
+      const amount = Number(cents || 0) / 100;
+      const currency = window.Shopify?.currency?.active || 'USD';
+      try {
+        return new Intl.NumberFormat(document.documentElement.lang || 'en', {
+          style: 'currency',
+          currency,
+          maximumFractionDigits: amount % 1 === 0 ? 0 : 2,
+        }).format(amount);
+      } catch (error) {
+        return `$${amount.toFixed(amount % 1 === 0 ? 0 : 2)}`;
+      }
+    }
+
+    syncUI() {
+      const variant = this.selected.variant;
+      if (!variant) return;
+
+      this.section.querySelectorAll('[data-fp-option]').forEach((btn) => {
+        const index = btn.dataset.optionIndex;
+        const value = btn.dataset.optionValue;
+        const isActive = this.selected.options[index] === value;
+        btn.classList.toggle('is-active', isActive);
+        btn.setAttribute('aria-pressed', String(isActive));
+
+        const probe = { ...this.selected.options, [index]: value };
+        const match = this.findVariant(probe);
+        const unavailable = !match || !match.available;
+        btn.classList.toggle('is-unavailable', unavailable);
+        btn.disabled = unavailable && !isActive;
+      });
+
+      this.section.querySelectorAll('[data-fp-mode]').forEach((btn) => {
+        const active = btn.dataset.fpMode === this.mode;
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-pressed', String(active));
+      });
+
+      this.updateSizeCards();
+      this.updatePurchaseCards(variant);
+      this.updateAtc(variant);
+
+      if (variant.featured_image && this.mainImage && !this.manualGallery) {
+        this.setMainImage({
+          src: variant.featured_image,
+          srcset: '',
+          alt: this.mainImage.alt || '',
+        });
+        this.setActiveThumbBySrc(variant.featured_image);
+      }
+    }
+
+    updateSizeCards() {
+      this.section.querySelectorAll('[data-fp-size]').forEach((card) => {
+        const value = card.dataset.optionValue;
+        const index = card.dataset.optionIndex;
+        const probe = { ...this.selected.options, [index]: value };
+        const variant = this.findVariant(probe);
+        const dayEl = card.querySelector('[data-fp-size-day]');
+        if (!variant || !dayEl) return;
+
+        const servings = Number(variant.servings || card.dataset.servings || 0);
+        const price = this.getPriceForMode(variant);
+        if (servings > 0) {
+          const perDay = Math.round(price / servings);
+          dayEl.textContent = `${this.formatMoney(perDay)} / ${this.dayLabel}`;
+          dayEl.hidden = false;
+        } else {
+          dayEl.hidden = true;
+        }
+      });
+    }
+
+    updatePurchaseCards(variant) {
+      const onetime = Number(variant.price || 0);
+      const compare = Number(variant.compare_at_price || onetime);
+      const subscribe = this.getPriceForMode(variant, 'subscribe');
+      const servings = Number(variant.servings || 0);
+      const saveAmount = Math.max(compare, onetime) - subscribe;
+
+      const subPrice = this.section.querySelector('[data-fp-subscribe-price]');
+      const compareEl = this.section.querySelector('[data-fp-compare-price]');
+      const saveRow = this.section.querySelector('[data-fp-save-row]');
+      const onePrice = this.section.querySelector('[data-fp-onetime-price]');
+      const oneDay = this.section.querySelector('[data-fp-onetime-day]');
+
+      if (subPrice) subPrice.textContent = this.formatMoney(subscribe);
+      if (compareEl) {
+        compareEl.textContent = this.formatMoney(compare > onetime ? compare : onetime);
+        compareEl.hidden = !(compare > subscribe || onetime > subscribe);
+      }
+      if (saveRow) {
+        const dayText =
+          servings > 0 ? ` · ${this.formatMoney(Math.round(subscribe / servings))}/${this.dayLabel}` : '';
+        saveRow.textContent =
+          saveAmount > 0 ? `You save ${this.formatMoney(saveAmount)}${dayText}` : dayText.replace(/^ · /, '');
+      }
+      if (onePrice) onePrice.textContent = this.formatMoney(onetime);
+      if (oneDay) {
+        oneDay.textContent =
+          servings > 0 ? `${this.formatMoney(Math.round(onetime / servings))}/${this.dayLabel}` : '';
+      }
+    }
+
+    updateAtc(variant) {
+      if (!this.atc) return;
+      const price = this.getPriceForMode(variant);
+      const modeLabel = this.mode === 'subscribe' ? this.subscribeLabel : this.onetimeLabel;
+      const label = this.atc.querySelector('[data-fp-atc-label]');
+      if (label) {
+        label.textContent = `${this.buttonLabel} · ${modeLabel} · ${this.formatMoney(price)}`;
+      }
+      this.atc.dataset.variantId = String(variant.id);
+      this.atc.disabled = !variant.available;
+    }
+
+    async onAtcClick() {
+      const variantId = this.atc?.dataset.variantId;
+      if (!variantId || this.atc.disabled) return;
+
+      const isSubscribe = this.mode === 'subscribe';
+      const cartDrawer = document.querySelector('cart-drawer');
+      const cartNotification = document.querySelector('cart-notification');
+      const cart = cartDrawer || cartNotification;
+      const label = this.atc.querySelector('[data-fp-atc-label]');
+      const spinner = this.atc.querySelector('.custom-fp__atc-spinner');
+      const originalLabel = label?.textContent;
+      const root = window.Shopify?.routes?.root || '/';
+
+      this.atc.classList.add('is-loading');
+      this.atc.setAttribute('aria-disabled', 'true');
+      spinner?.classList.remove('hidden');
+
+      try {
+        if (isSubscribe && !this.discountCode) {
+          throw new Error('Add subscribe discount code in section settings');
+        }
+
+        const sectionIds = cart?.getSectionsToRender
+          ? cart.getSectionsToRender().map((section) => section.id)
+          : ['cart-drawer', 'cart-icon-bubble'];
+
+        const formData = new FormData();
+        formData.append('id', variantId);
+        formData.append('quantity', '1');
+        formData.append(
+          'properties[_purchase_option]',
+          isSubscribe ? 'Autoship & Save' : 'One-time purchase'
+        );
+        formData.append('sections', sectionIds.join(','));
+        formData.append('sections_url', window.location.pathname);
+        cart?.setActiveElement?.(document.activeElement);
+
+        const config =
+          typeof fetchConfig === 'function'
+            ? fetchConfig('javascript')
+            : { method: 'POST', headers: { Accept: 'application/javascript' } };
+        config.headers['X-Requested-With'] = 'XMLHttpRequest';
+        delete config.headers['Content-Type'];
+        config.body = formData;
+
+        const addResponse = await fetch(window.routes?.cart_add_url || `${root}cart/add.js`, config);
+        const addData = await addResponse.json();
+        if (addData.status) {
+          throw new Error(addData.description || addData.message || 'Unable to add to cart');
+        }
+
+        let uiState = addData;
+        let discountWarning = '';
+        if (isSubscribe && this.discountCode) {
+          try {
+            uiState = await this.applyDiscountCode(this.discountCode, sectionIds);
+            this.syncCheckoutDiscount(this.discountCode);
+          } catch (discountError) {
+            console.error(discountError);
+            discountWarning = discountError.message || 'Discount could not be applied';
+            this.syncCheckoutDiscount(this.discountCode);
+          }
+        } else {
+          this.syncCheckoutDiscount('');
+        }
+
+        this.renderCartContents(uiState, cartDrawer, cartNotification, this.atc);
+        if (uiState?.total_discount > 0) this.paintDiscountFromCart(uiState);
+        if (discountWarning) this.showCartMessage(discountWarning);
+
+        if (typeof publish === 'function' && typeof PUB_SUB_EVENTS !== 'undefined') {
+          publish(PUB_SUB_EVENTS.cartUpdate, {
+            source: 'custom-featured-product',
+            productVariantId: String(variantId),
+            cartData: addData,
+          });
+        }
+      } catch (error) {
+        console.error(error);
+        this.showCartMessage(error.message || 'Unable to update cart');
+        if (label) {
+          label.textContent = 'Error';
+          setTimeout(() => {
+            label.textContent = originalLabel;
+          }, 2200);
+        }
+      } finally {
+        this.atc.classList.remove('is-loading');
+        this.atc.removeAttribute('aria-disabled');
+        spinner?.classList.add('hidden');
+      }
+    }
+
+    applyDiscountCode(code, sectionIds) {
+      return CustomFeaturedCollection.prototype.applyDiscountCode.call(this, code, sectionIds);
+    }
+
+    syncCheckoutDiscount(code) {
+      return CustomFeaturedCollection.prototype.syncCheckoutDiscount.call(this, code);
+    }
+
+    showCartMessage(message) {
+      return CustomFeaturedCollection.prototype.showCartMessage.call(this, message);
+    }
+
+    formatMoneyCart(cents, currency) {
+      return CustomFeaturedCollection.prototype.formatMoney.call(this, cents, currency);
+    }
+
+    paintDiscountFromCart(cart) {
+      return CustomFeaturedCollection.prototype.paintDiscountFromCart.call(this, cart);
+    }
+
+    renderCartContents(parsedState, cartDrawer, cartNotification, trigger) {
+      return CustomFeaturedCollection.prototype.renderCartContents.call(
+        this,
+        parsedState,
+        cartDrawer,
+        cartNotification,
+        trigger
+      );
+    }
+
+    updateCartIconBubble(sectionHtml) {
+      return CustomFeaturedCollection.prototype.updateCartIconBubble.call(this, sectionHtml);
+    }
+  }
+
   const initCustomBanners = () => {
     document.querySelectorAll('[data-custom-banner]').forEach((section) => {
       if (section.dataset.bannerInitialized === 'true') return;
@@ -524,9 +932,18 @@
     });
   };
 
+  const initCustomFeaturedProduct = () => {
+    document.querySelectorAll('[data-custom-featured-product]').forEach((section) => {
+      if (section.dataset.fpInitialized === 'true') return;
+      section.dataset.fpInitialized = 'true';
+      new CustomFeaturedProduct(section);
+    });
+  };
+
   const initAll = () => {
     initCustomBanners();
     initCustomFeatured();
+    initCustomFeaturedProduct();
   };
 
   if (document.readyState === 'loading') {
@@ -548,6 +965,13 @@
       featured.dataset.featuredInitialized = 'false';
       new CustomFeaturedCollection(featured);
       featured.dataset.featuredInitialized = 'true';
+    }
+
+    const featuredProduct = event.target.querySelector('[data-custom-featured-product]');
+    if (featuredProduct) {
+      featuredProduct.dataset.fpInitialized = 'false';
+      new CustomFeaturedProduct(featuredProduct);
+      featuredProduct.dataset.fpInitialized = 'true';
     }
   });
 })();
