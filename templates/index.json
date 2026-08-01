@@ -75,7 +75,7 @@
             "collection": "greens",
             "label": "Greens",
             "products_to_show": 8,
-            "background_color": "#e4ede6",
+            "background_color": "#E6ECF0",
             "dot_color": "#8fae8b"
           }
         },
@@ -85,7 +85,7 @@
             "collection": "sleep",
             "label": "Sleep",
             "products_to_show": 8,
-            "background_color": "#e6ecf0",
+            "background_color": "#F3EDE4",
             "dot_color": "#a7b8c4"
           }
         },
@@ -95,7 +95,7 @@
             "collection": "bundles",
             "label": "Bundles",
             "products_to_show": 8,
-            "background_color": "#f3e6dc",
+            "background_color": "#E6ECF0",
             "dot_color": "#e0b89a"
           }
         }
@@ -152,16 +152,16 @@
         "default_mode": "subscribe",
         "button_label": "Add to cart",
         "trust_badges": "30-day money-back\nShips in 1 business day\n100K+ customers\nHSA/FSA eligible",
-        "background_color": "#FFFFFF",
-        "accent_color": "#14110E",
-        "accent_soft": "#F2F5ED",
+        "background_color": "#ffffff",
+        "accent_color": "#14110e",
+        "accent_soft": "#f2f5ed",
         "text_color": "#1a1a1a",
-        "muted_color": "#6B6B66",
+        "muted_color": "#6b6b66",
         "border_color": "#d9d2c8",
-        "badge_color": "#C6613F",
-        "save_color": "#C6613F",
-        "star_color": "#C6613F",
-        "button_bg": "#1F3D2B",
+        "badge_color": "#c6613f",
+        "save_color": "#c6613f",
+        "star_color": "#c6613f",
+        "button_bg": "#1f3d2b",
         "button_text": "#ffffff",
         "padding_top": 48,
         "padding_bottom": 48
