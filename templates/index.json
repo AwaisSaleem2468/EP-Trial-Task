@@ -46,48 +46,6 @@
         "padding_bottom": 0
       }
     },
-    "custom_section_featured_product_main": {
-      "type": "custom-section-featured-product",
-      "name": "Featured Product",
-      "settings": {
-        "product": "daily-greens",
-        "heading": "",
-        "description": "",
-        "format_option_name": "Format",
-        "flavor_option_name": "Flavor",
-        "size_option_name": "Size",
-        "flavor_heading": "Select your flavor",
-        "size_heading": "Select your size",
-        "purchase_heading": "Purchase type",
-        "best_value_label": "BEST VALUE",
-        "servings_label": "servings",
-        "day_label": "day",
-        "reviews_label": "reviews",
-        "in_stock_label": "In stock",
-        "subscribe_label": "Autoship & Save",
-        "onetime_label": "One-time purchase",
-        "popular_badge": "MOST POPULAR",
-        "subscribe_perks": "Free shipping every order\nPause, edit or cancel anytime\nVIP perks",
-        "discount_percent": 25,
-        "subscribe_discount_code": "SUBSCRIBE25",
-        "default_mode": "subscribe",
-        "button_label": "Add to cart",
-        "trust_badges": "30-day money-back\nShips in 1 business day\n100K+ customers\nHSA/FSA eligible",
-        "background_color": "#f7f1ea",
-        "accent_color": "#1f3d2b",
-        "accent_soft": "#e7f0e8",
-        "text_color": "#1a1a1a",
-        "muted_color": "#6b6b6b",
-        "border_color": "#d9d2c8",
-        "badge_color": "#c6613f",
-        "save_color": "#c45c3e",
-        "star_color": "#c6613f",
-        "button_bg": "#1f3d2b",
-        "button_text": "#ffffff",
-        "padding_top": 48,
-        "padding_bottom": 48
-      }
-    },
     "custom_section_featured_collection_VjpCNJ": {
       "type": "custom-section-featured-collection",
       "blocks": {
@@ -166,11 +124,53 @@
         "padding_top": 64,
         "padding_bottom": 64
       }
+    },
+    "custom_section_featured_product_main": {
+      "type": "custom-section-featured-product",
+      "name": "Featured Product",
+      "settings": {
+        "product": "vela-daily-greens-1",
+        "heading": "",
+        "description": "",
+        "format_option_name": "Format",
+        "flavor_option_name": "Flavor",
+        "size_option_name": "Size",
+        "flavor_heading": "Select your flavor",
+        "size_heading": "Select your size",
+        "purchase_heading": "Purchase type",
+        "best_value_label": "BEST VALUE",
+        "servings_label": "servings",
+        "day_label": "day",
+        "reviews_label": "reviews",
+        "in_stock_label": "In stock",
+        "subscribe_label": "Autoship & Save",
+        "onetime_label": "One-time purchase",
+        "popular_badge": "MOST POPULAR",
+        "subscribe_perks": "Free shipping every order\nPause, edit or cancel anytime\nVIP perks",
+        "discount_percent": 25,
+        "subscribe_discount_code": "SUBSCRIBE25",
+        "default_mode": "subscribe",
+        "button_label": "Add to cart",
+        "trust_badges": "30-day money-back\nShips in 1 business day\n100K+ customers\nHSA/FSA eligible",
+        "background_color": "#f7f1ea",
+        "accent_color": "#1f3d2b",
+        "accent_soft": "#e7f0e8",
+        "text_color": "#1a1a1a",
+        "muted_color": "#6b6b6b",
+        "border_color": "#d9d2c8",
+        "badge_color": "#c6613f",
+        "save_color": "#c45c3e",
+        "star_color": "#c6613f",
+        "button_bg": "#1f3d2b",
+        "button_text": "#ffffff",
+        "padding_top": 48,
+        "padding_bottom": 48
+      }
     }
   },
   "order": [
     "custom_section_banner_gfPYMF",
-    "custom_section_featured_product_main",
-    "custom_section_featured_collection_VjpCNJ"
+    "custom_section_featured_collection_VjpCNJ",
+    "custom_section_featured_product_main"
   ]
 }
