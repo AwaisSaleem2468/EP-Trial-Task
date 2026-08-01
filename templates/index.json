@@ -56,6 +56,7 @@
             "subscribe_label": "Subscribe",
             "discount_percent": 25,
             "subscribe_discount_code": "SUBSCRIBE25",
+            "onetime_discount_code": "ONETIME",
             "default_mode": "subscribe"
           }
         },
@@ -75,7 +76,7 @@
             "collection": "greens",
             "label": "Greens",
             "products_to_show": 8,
-            "background_color": "#E6ECF0",
+            "background_color": "#e6ecf0",
             "dot_color": "#8fae8b"
           }
         },
@@ -85,7 +86,7 @@
             "collection": "sleep",
             "label": "Sleep",
             "products_to_show": 8,
-            "background_color": "#F3EDE4",
+            "background_color": "#f3ede4",
             "dot_color": "#a7b8c4"
           }
         },
@@ -95,7 +96,7 @@
             "collection": "bundles",
             "label": "Bundles",
             "products_to_show": 8,
-            "background_color": "#E6ECF0",
+            "background_color": "#e6ecf0",
             "dot_color": "#e0b89a"
           }
         }
@@ -149,12 +150,13 @@
         "subscribe_perks": "Free shipping every order\nPause, edit or cancel anytime\nVIP perks",
         "discount_percent": 25,
         "subscribe_discount_code": "SUBSCRIBE25",
+        "onetime_discount_code": "",
         "default_mode": "subscribe",
         "button_label": "Add to cart",
         "trust_badges": "30-day money-back\nShips in 1 business day\n100K+ customers\nHSA/FSA eligible",
         "background_color": "#ffffff",
         "accent_color": "#14110e",
-        "accent_soft": "#F3EDE4",
+        "accent_soft": "#f3ede4",
         "text_color": "#1a1a1a",
         "muted_color": "#6b6b66",
         "border_color": "#d9d2c8",
