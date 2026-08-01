@@ -1113,7 +1113,7 @@ body{
 }
 
 .custom-fp__size-title {
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--fp-text, #1a1a1a);
 }
@@ -1121,13 +1121,14 @@ body{
 .custom-fp__size-servings {
   font-size: 1.25rem;
   color: var(--fp-muted, #6b6b6b);
+  font-weight: 600;
 }
 
 .custom-fp__size-day {
     margin-top: 0;
-    padding-top: .6rem;
-    font-size: 1.45rem;
-    font-weight: 700;
+    padding-top: .5rem;
+    font-size: 1.2rem;
+    font-weight: 600;
     color: var(--fp-text, #1a1a1a);
 }
 .custom-fp__purchase {
