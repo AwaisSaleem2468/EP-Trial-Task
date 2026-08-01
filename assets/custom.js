@@ -262,16 +262,31 @@
 
         // Apply subscribe discount via Cart Ajax API, then re-render sections
         let uiState = addData;
+        let discountWarning = '';
         if (isSubscribe && discountCode) {
           try {
             uiState = await this.applyDiscountCode(discountCode, sectionIds);
+            this.syncCheckoutDiscount(discountCode);
           } catch (discountError) {
-            console.warn(discountError);
-            // Item was added; still refresh UI even if discount failed
+            console.error(discountError);
+            discountWarning = discountError.message || 'Discount could not be applied';
+            // Still pass code to checkout in case checkout accepts it
+            this.syncCheckoutDiscount(discountCode);
           }
+        } else {
+          this.syncCheckoutDiscount('');
         }
 
         this.renderCartContents(uiState, cartDrawer, cartNotification, button);
+
+        // Liquid cart sections often omit discount-code allocations; paint from cart JSON
+        if (uiState?.total_discount > 0) {
+          this.paintDiscountFromCart(uiState);
+        }
+
+        if (discountWarning) {
+          this.showCartMessage(discountWarning);
+        }
 
         if (typeof publish === 'function' && typeof PUB_SUB_EVENTS !== 'undefined') {
           publish(PUB_SUB_EVENTS.cartUpdate, {
@@ -282,11 +297,12 @@
         }
       } catch (error) {
         console.error(error);
+        this.showCartMessage(error.message || 'Unable to update cart');
         if (label) {
           label.textContent = 'Error';
           setTimeout(() => {
             label.textContent = originalLabel;
-          }, 1800);
+          }, 2200);
         }
       } finally {
         button.classList.remove('is-loading');
@@ -297,14 +313,15 @@
 
     /**
      * Apply a Shopify Admin discount code via Cart Ajax API (/cart/update.js).
-     * Returns cart JSON (optionally with rendered sections).
+     * Throws when the code is accepted but not applicable to the current cart.
      */
     async applyDiscountCode(code, sectionIds = []) {
       const root = window.Shopify?.routes?.root || '/';
-      const body = { discount: code };
+      const normalized = String(code).trim();
+      const body = { discount: normalized };
 
       if (sectionIds.length) {
-        body.sections = sectionIds.join(',');
+        body.sections = sectionIds;
         body.sections_url = window.location.pathname;
       }
 
@@ -314,15 +331,144 @@
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
+        credentials: 'same-origin',
         body: JSON.stringify(body),
       });
 
-      const data = await response.json();
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        throw new Error(`Unable to apply discount ${normalized} (invalid response)`);
+      }
+
       if (!response.ok || data.status) {
-        throw new Error(data.description || data.message || `Unable to apply discount ${code}`);
+        throw new Error(data.description || data.message || `Unable to apply discount ${normalized}`);
+      }
+
+      const match = (data.discount_codes || []).find(
+        (entry) => String(entry.code || '').toUpperCase() === normalized.toUpperCase()
+      );
+
+      // Code is on the cart but Shopify rules reject it for these line items
+      if (!match || match.applicable !== true || Number(data.total_discount || 0) <= 0) {
+        throw new Error(
+          `"${normalized}" is on the cart but not applicable (Shopify returned applicable:false). ` +
+            'Fix Admin → Discounts → this code: set Purchase type to “One-time purchase” or “Both” ' +
+            '(this store has no selling plans), allow these products/collections, remove min. requirements / customer limits, and ensure usage limit is not exhausted.'
+        );
       }
 
       return data;
+    }
+
+    /**
+     * Keep discount on the cart drawer checkout submit (backup for checkout).
+     */
+    syncCheckoutDiscount(code) {
+      const form = document.getElementById('CartDrawer-Form');
+      if (!form) return;
+
+      let input = form.querySelector('[data-ep-checkout-discount]');
+      if (!code) {
+        input?.remove();
+        return;
+      }
+
+      if (!input) {
+        input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'discount';
+        input.setAttribute('data-ep-checkout-discount', 'true');
+        form.appendChild(input);
+      }
+      input.value = code;
+    }
+
+    showCartMessage(message) {
+      const el = document.getElementById('CartDrawer-CartErrors');
+      if (!el) return;
+      el.textContent = message;
+    }
+
+    formatMoney(cents, currency = 'USD') {
+      const amount = Number(cents || 0) / 100;
+      try {
+        return new Intl.NumberFormat(document.documentElement.lang || 'en', {
+          style: 'currency',
+          currency,
+        }).format(amount);
+      } catch (error) {
+        return `$${amount.toFixed(2)}`;
+      }
+    }
+
+    /**
+     * Paint discounted totals/lines from cart.js JSON (Liquid may not expose code discounts).
+     */
+    paintDiscountFromCart(cart) {
+      if (!cart || Number(cart.total_discount || 0) <= 0) return;
+
+      const drawer = document.querySelector('cart-drawer');
+      if (!drawer) return;
+
+      const currency = cart.currency || 'USD';
+      const totalEl = drawer.querySelector('.totals__total-value');
+      if (totalEl) {
+        totalEl.textContent = this.formatMoney(cart.total_price, currency);
+      }
+
+      const footerHost = drawer.querySelector('.cart-drawer__footer > div');
+      if (footerHost) {
+        let list = footerHost.querySelector('[data-ep-discount-list]');
+        if (!list) {
+          list = document.createElement('ul');
+          list.className = 'discounts list-unstyled';
+          list.setAttribute('data-ep-discount-list', 'true');
+          list.setAttribute('role', 'list');
+          footerHost.prepend(list);
+        }
+
+        const apps =
+          cart.cart_level_discount_applications?.length > 0
+            ? cart.cart_level_discount_applications
+            : (cart.discount_codes || [])
+                .filter((entry) => entry.applicable)
+                .map((entry) => ({
+                  title: entry.code,
+                  total_allocated_amount: cart.total_discount,
+                }));
+
+        list.innerHTML = apps
+          .map(
+            (app) =>
+              `<li class="discounts__discount discounts__discount--end">${app.title} (-${this.formatMoney(
+                app.total_allocated_amount || cart.total_discount,
+                currency
+              )})</li>`
+          )
+          .join('');
+      }
+
+      (cart.items || []).forEach((item) => {
+        if (!item.line_level_total_discount && item.original_price === item.final_price) return;
+        const row =
+          drawer.querySelector(`[data-variant-id="${item.variant_id}"]`) ||
+          drawer.querySelector(`#CartDrawer-Item-${item.index || ''}`.replace(/-$/, ''));
+        // Update visible unit price when line discounts exist
+        if (item.final_price !== item.original_price) {
+          const priceHost = row?.querySelector('.product-option, .cart-item__discounted-prices');
+          if (priceHost && !priceHost.classList.contains('cart-item__discounted-prices')) {
+            priceHost.innerHTML = `<s class="cart-item__old-price product-option">${this.formatMoney(
+              item.original_price,
+              currency
+            )}</s> <strong class="cart-item__final-price product-option">${this.formatMoney(
+              item.final_price,
+              currency
+            )}</strong>`;
+          }
+        }
+      });
     }
 
     /**
@@ -337,12 +483,10 @@
 
       if (cart?.renderContents && parsedState?.sections) {
         cart.renderContents(parsedState);
-        // Ensure bubble updates even if drawer paint path skips it
         this.updateCartIconBubble(parsedState.sections['cart-icon-bubble']);
         return;
       }
 
-      // Fallback if theme cart component is unavailable
       this.updateCartIconBubble(parsedState?.sections?.['cart-icon-bubble']);
       cartDrawer?.open?.(trigger);
     }
