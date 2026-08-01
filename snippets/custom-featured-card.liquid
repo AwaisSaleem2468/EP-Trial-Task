@@ -79,6 +79,11 @@
   if card_product.featured_media != blank and card_product.featured_media.alt != blank
     assign image_alt = card_product.featured_media.alt
   endif
+
+  assign card_selling_plan_id = blank
+  if card_product.selling_plan_groups.size > 0
+    assign card_selling_plan_id = card_product.selling_plan_groups.first.selling_plans.first.id
+  endif
 -%}
 
 <article
@@ -87,6 +92,7 @@
   data-tab="{{ tab_id | escape }}"
   data-variant-id="{{ variant.id }}"
   data-available="{{ variant.available }}"
+  {% if card_selling_plan_id != blank %}data-selling-plan-id="{{ card_selling_plan_id }}"{% endif %}
 >
   <a
     class="custom-featured__card-media"

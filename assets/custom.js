@@ -44,6 +44,7 @@
       this.mode = section.dataset.purchaseMode || 'subscribe';
       this.discountCode = (section.dataset.subscribeDiscountCode || '').trim();
       this.onetimeDiscountCode = (section.dataset.onetimeDiscountCode || '').trim();
+      this.subscribeSellingPlanId = (section.dataset.subscribeSellingPlan || '').trim();
       this.activeTabId =
         this.tabs.find((tab) => tab.classList.contains('is-active'))?.dataset.tabId ||
         this.tabs[0]?.dataset.tabId;
@@ -217,11 +218,6 @@
       const originalLabel = label?.textContent;
       const root = window.Shopify?.routes?.root || '/';
       const discountCode = (this.discountCode || this.section.dataset.subscribeDiscountCode || '').trim();
-      const onetimeDiscountCode = (
-        this.onetimeDiscountCode ||
-        this.section.dataset.onetimeDiscountCode ||
-        ''
-      ).trim();
 
       button.classList.add('is-loading');
       button.setAttribute('aria-disabled', 'true');
@@ -247,8 +243,13 @@
           isSubscribe ? 'Subscribe & Save' : 'One-time'
         );
         const sellingPlanId = isSubscribe
-          ? (this.section.dataset.subscribeSellingPlan || '').trim()
-          : (this.section.dataset.onetimeSellingPlan || '').trim();
+          ? (
+              card.dataset.sellingPlanId ||
+              this.subscribeSellingPlanId ||
+              this.section.dataset.subscribeSellingPlan ||
+              ''
+            ).trim()
+          : '';
         if (sellingPlanId) {
           formData.append('selling_plan', sellingPlanId);
         }
@@ -273,8 +274,8 @@
         }
 
         const discountResult = await this.syncPurchaseDiscount({
+          isSubscribe,
           subscribeCode: discountCode,
-          onetimeCode: onetimeDiscountCode,
           sectionIds,
           fallbackState: addData,
         });
@@ -313,52 +314,66 @@
     }
 
     /**
-     * Keep both purchase-type discount codes on the cart.
-     * SUBSCRIBE25 applies only to subscription lines; ONETIME only to one-time lines.
+     * Mixed cart support (no clearing):
+     * - Subscribe add → attach selling plan + apply SUBSCRIBE25
+     * - One-time add → no selling plan, do NOT clear discounts
+     * SUBSCRIBE25 must be Admin purchase type "Subscription" so only plan lines get 25% off.
      */
-    async syncPurchaseDiscount({ subscribeCode, onetimeCode, sectionIds, fallbackState }) {
+    async syncPurchaseDiscount({ isSubscribe, subscribeCode, sectionIds, fallbackState }) {
       let uiState = fallbackState;
       let warning = '';
+      const code = String(subscribeCode || '').trim();
+      const root = window.Shopify?.routes?.root || '/';
 
-      const codes = [subscribeCode, onetimeCode]
-        .map((code) => String(code || '').trim())
-        .filter(Boolean);
-
-      if (!codes.length) {
-        try {
-          uiState = await this.clearDiscountCodes(sectionIds);
-        } catch (clearError) {
-          console.warn(clearError);
+      if (isSubscribe) {
+        if (!code) {
+          warning = 'Add subscribe discount code (e.g. SUBSCRIBE25) in section settings.';
+          return { uiState, warning };
         }
-        this.syncCheckoutDiscount('');
+        try {
+          uiState = await this.applyDiscountCode(code, sectionIds);
+          this.syncCheckoutDiscount(code);
+        } catch (discountError) {
+          console.error(discountError);
+          warning = discountError.message || 'Subscribe discount could not be applied';
+          this.syncCheckoutDiscount(code);
+        }
         return { uiState, warning };
       }
 
-      const combined = codes.join(',');
+      // One-time: never clear the cart discount.
+      // If subscribe lines already exist, re-apply SUBSCRIBE25 so it stays on those lines only.
       try {
-        uiState = await this.applyDiscountCode(combined, sectionIds);
-        this.syncCheckoutDiscount(combined);
-      } catch (discountError) {
-        console.error(discountError);
-        warning = discountError.message || 'Discount could not be applied';
-        this.syncCheckoutDiscount(combined);
+        const cartResponse = await fetch(`${root}cart.js`, { credentials: 'same-origin' });
+        const cart = await cartResponse.json();
+        const hasSubscribeLine = (cart.items || []).some(
+          (item) =>
+            item.selling_plan_allocation ||
+            item.selling_plan_allocation != null ||
+            /subscribe|autoship/i.test(String(item.properties?._purchase_option || ''))
+        );
+        const hasSubscribeCode = (cart.discount_codes || []).some(
+          (entry) => String(entry.code || '').toUpperCase() === code.toUpperCase()
+        );
+
+        if (code && (hasSubscribeLine || hasSubscribeCode)) {
+          uiState = await this.applyDiscountCode(code, sectionIds);
+          this.syncCheckoutDiscount(code);
+        }
+      } catch (error) {
+        console.warn(error);
       }
 
       return { uiState, warning };
     }
 
     /**
-     * Apply Shopify Admin discount code(s) via Cart Ajax API (/cart/update.js).
-     * Pass a single code or comma-separated codes (e.g. SUBSCRIBE25,ONETIME).
+     * Apply a Shopify Admin discount code via Cart Ajax API (/cart/update.js).
      */
     async applyDiscountCode(code, sectionIds = []) {
       const root = window.Shopify?.routes?.root || '/';
       const normalized = String(code).trim();
-      const codes = normalized
-        .split(',')
-        .map((part) => part.trim())
-        .filter(Boolean);
-      const body = { discount: codes.join(',') };
+      const body = { discount: normalized };
 
       if (sectionIds.length) {
         body.sections = sectionIds;
@@ -386,27 +401,13 @@
         throw new Error(data.description || data.message || `Unable to apply discount ${normalized}`);
       }
 
-      const discountCodes = data.discount_codes || [];
-      const applicableCodes = codes.filter((entry) =>
-        discountCodes.some(
-          (item) => String(item.code || '').toUpperCase() === entry.toUpperCase() && item.applicable === true
-        )
+      const match = (data.discount_codes || []).find(
+        (entry) => String(entry.code || '').toUpperCase() === normalized.toUpperCase()
       );
 
-      // Multi-code: OK if at least one code applies to current lines
-      if (codes.length > 1) {
-        if (!applicableCodes.length && Number(data.total_discount || 0) <= 0) {
-          console.warn('Discount codes present but none applicable to current cart lines', discountCodes);
-        }
-        return data;
-      }
-
-      if (!applicableCodes.length || Number(data.total_discount || 0) <= 0) {
+      if (!match || match.applicable !== true || Number(data.total_discount || 0) <= 0) {
         throw new Error(
-          `"${normalized}" is on the cart but not applicable (Shopify returned applicable:false). ` +
-            'For Subscribe codes, lines need a subscription selling plan. ' +
-            'For One-time codes, lines must be one-time (no selling plan). ' +
-            'Publish selling plans to the Online Store channel and match Admin purchase-type settings.'
+          `"${normalized}" did not discount any lines. For mixed carts: set this code’s Purchase type to “Subscription”, install Shopify’s free Subscriptions app, assign a plan to the product, and set the Subscribe selling plan ID in the section.`
         );
       }
 
@@ -917,11 +918,8 @@
           'properties[_purchase_option]',
           isSubscribe ? 'Autoship & Save' : 'One-time purchase'
         );
-        const sellingPlanId = isSubscribe
-          ? this.subscribeSellingPlanId
-          : this.onetimeSellingPlanId;
-        if (sellingPlanId) {
-          formData.append('selling_plan', sellingPlanId);
+        if (isSubscribe && this.subscribeSellingPlanId) {
+          formData.append('selling_plan', this.subscribeSellingPlanId);
         }
         formData.append('sections', sectionIds.join(','));
         formData.append('sections_url', window.location.pathname);
@@ -943,17 +941,17 @@
 
         if (isSubscribe && !this.subscribeSellingPlanId) {
           console.warn(
-            'Subscribe ATC: no selling plan ID found. Publish a subscription selling plan to the Online Store, or set “Subscribe selling plan ID” in the section.'
+            'Mixed cart needs a subscribe selling plan. Install Shopify Subscriptions (free), assign a plan to the product, then set “Subscribe selling plan ID” in the section.'
           );
         }
 
         const discountResult = await this.syncPurchaseDiscount({
+          isSubscribe,
           subscribeCode: this.discountCode,
-          onetimeCode: this.onetimeDiscountCode,
           sectionIds,
           fallbackState: addData,
         });
-        let uiState = discountResult.uiState;
+        const uiState = discountResult.uiState;
 
         this.renderCartContents(uiState, cartDrawer, cartNotification, this.atc);
         if (uiState?.total_discount > 0) this.paintDiscountFromCart(uiState);

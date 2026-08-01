@@ -768,30 +768,17 @@
       "id": "subscribe_discount_code",
       "label": "Subscribe discount code",
       "default": "SUBSCRIBE25",
-      "info": "Purchase type: Subscription. Keep this code on the cart with the one-time code."
-    },
-    {
-      "type": "text",
-      "id": "onetime_discount_code",
-      "label": "One-time discount code",
-      "default": "ONETIME",
-      "info": "Purchase type: One-time purchase. Both codes stay on the cart; each applies only to matching lines."
+      "info": "Must use Purchase type “Subscription” (not Both) so one-time lines stay at full price in a mixed cart."
     },
     {
       "type": "text",
       "id": "subscribe_selling_plan_id",
       "label": "Subscribe selling plan ID",
-      "info": "Required for per-line subscribe pricing. Find it on the product’s selling plan in Admin, or leave blank to auto-detect from the product name."
-    },
-    {
-      "type": "text",
-      "id": "onetime_selling_plan_id",
-      "label": "One-time selling plan ID",
-      "info": "Optional. Leave blank to add true one-time lines (no selling plan)."
+      "info": "Required for mixed carts. Install Shopify’s free Subscriptions app → create a plan → assign to product → paste the plan ID here."
     },
     {
       "type": "paragraph",
-      "content": "Both discount codes are applied together. Subscribe adds use the subscribe selling plan; one-time adds do not. Publish selling plans to the Online Store channel or mixed carts will keep flipping prices."
+      "content": "Mixed cart: One-time adds base price (no plan). Subscribe adds selling plan + SUBSCRIBE25. Theme never clears the cart. Without a selling plan, Shopify cannot discount only subscribe lines."
     },
     {
       "type": "select",

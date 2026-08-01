@@ -21,6 +21,7 @@
   assign subscribe_label = 'Subscribe'
   assign subscribe_discount_code = ''
   assign onetime_discount_code = ''
+  assign subscribe_selling_plan_id = ''
 
   if switch_block
     assign discount_percent = switch_block.settings.discount_percent
@@ -29,6 +30,7 @@
     assign subscribe_label = switch_block.settings.subscribe_label
     assign subscribe_discount_code = switch_block.settings.subscribe_discount_code
     assign onetime_discount_code = switch_block.settings.onetime_discount_code
+    assign subscribe_selling_plan_id = switch_block.settings.subscribe_selling_plan_id | strip
   endif
 
   assign button_label = section.settings.button_label | default: 'Add to cart'
@@ -51,6 +53,7 @@
   data-discount-percent="{{ discount_percent }}"
   data-subscribe-discount-code="{{ subscribe_discount_code | escape }}"
   data-onetime-discount-code="{{ onetime_discount_code | escape }}"
+  data-subscribe-selling-plan="{{ subscribe_selling_plan_id | escape }}"
   style="
     --ep-featured-bg: {{ active_bg }};
     --ep-eyebrow: {{ section.settings.eyebrow_color }};
@@ -393,17 +396,17 @@
           "type": "text",
           "id": "subscribe_discount_code",
           "label": "Subscribe discount code",
-          "info": "Applied in Subscribe mode. Admin code with Purchase type One-time or Both."
+          "info": "Use SUBSCRIBE25 with Purchase type “Subscription” for mixed carts."
         },
         {
           "type": "text",
-          "id": "onetime_discount_code",
-          "label": "One-time discount code",
-          "info": "Optional. Applied in One-time mode (replaces subscribe code on the whole cart). Leave blank for full base price."
+          "id": "subscribe_selling_plan_id",
+          "label": "Subscribe selling plan ID",
+          "info": "Same plan ID as Featured Product. From Shopify Subscriptions app → assign to products → paste ID here."
         },
         {
           "type": "paragraph",
-          "content": "Shopify codes are cart-level. The last applied code affects every item in the cart."
+          "content": "Subscribe ATC uses this plan ID + discount code. One-time ATC uses base price and does not clear the cart."
         },
         {
           "type": "select",
