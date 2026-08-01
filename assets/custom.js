@@ -246,6 +246,12 @@
           'properties[_purchase_option]',
           isSubscribe ? 'Subscribe & Save' : 'One-time'
         );
+        const sellingPlanId = isSubscribe
+          ? (this.section.dataset.subscribeSellingPlan || '').trim()
+          : (this.section.dataset.onetimeSellingPlan || '').trim();
+        if (sellingPlanId) {
+          formData.append('selling_plan', sellingPlanId);
+        }
         formData.append('sections', sectionIds.join(','));
         formData.append('sections_url', window.location.pathname);
         cart?.setActiveElement?.(document.activeElement);
@@ -267,7 +273,6 @@
         }
 
         const discountResult = await this.syncPurchaseDiscount({
-          isSubscribe,
           subscribeCode: discountCode,
           onetimeCode: onetimeDiscountCode,
           sectionIds,
@@ -308,56 +313,52 @@
     }
 
     /**
-     * Apply the discount code for the selected purchase mode.
-     * Subscribe → subscribe code; One-time → one-time code (or clear if blank).
-     * Shopify codes are cart-level, so the active code replaces the previous one.
+     * Keep both purchase-type discount codes on the cart.
+     * SUBSCRIBE25 applies only to subscription lines; ONETIME only to one-time lines.
      */
-    async syncPurchaseDiscount({ isSubscribe, subscribeCode, onetimeCode, sectionIds, fallbackState }) {
+    async syncPurchaseDiscount({ subscribeCode, onetimeCode, sectionIds, fallbackState }) {
       let uiState = fallbackState;
       let warning = '';
 
-      if (isSubscribe && subscribeCode) {
+      const codes = [subscribeCode, onetimeCode]
+        .map((code) => String(code || '').trim())
+        .filter(Boolean);
+
+      if (!codes.length) {
         try {
-          uiState = await this.applyDiscountCode(subscribeCode, sectionIds);
-          this.syncCheckoutDiscount(subscribeCode);
-        } catch (discountError) {
-          console.error(discountError);
-          warning = discountError.message || 'Discount could not be applied';
-          this.syncCheckoutDiscount(subscribeCode);
+          uiState = await this.clearDiscountCodes(sectionIds);
+        } catch (clearError) {
+          console.warn(clearError);
         }
+        this.syncCheckoutDiscount('');
         return { uiState, warning };
       }
 
-      if (!isSubscribe && onetimeCode) {
-        try {
-          uiState = await this.applyDiscountCode(onetimeCode, sectionIds);
-          this.syncCheckoutDiscount(onetimeCode);
-        } catch (discountError) {
-          console.error(discountError);
-          warning = discountError.message || 'One-time discount could not be applied';
-          this.syncCheckoutDiscount(onetimeCode);
-        }
-        return { uiState, warning };
-      }
-
-      // One-time with no code → full base price (remove leftover subscribe code)
+      const combined = codes.join(',');
       try {
-        uiState = await this.clearDiscountCodes(sectionIds);
-      } catch (clearError) {
-        console.warn(clearError);
+        uiState = await this.applyDiscountCode(combined, sectionIds);
+        this.syncCheckoutDiscount(combined);
+      } catch (discountError) {
+        console.error(discountError);
+        warning = discountError.message || 'Discount could not be applied';
+        this.syncCheckoutDiscount(combined);
       }
-      this.syncCheckoutDiscount('');
+
       return { uiState, warning };
     }
 
     /**
-     * Apply a Shopify Admin discount code via Cart Ajax API (/cart/update.js).
-     * Throws when the code is accepted but not applicable to the current cart.
+     * Apply Shopify Admin discount code(s) via Cart Ajax API (/cart/update.js).
+     * Pass a single code or comma-separated codes (e.g. SUBSCRIBE25,ONETIME).
      */
     async applyDiscountCode(code, sectionIds = []) {
       const root = window.Shopify?.routes?.root || '/';
       const normalized = String(code).trim();
-      const body = { discount: normalized };
+      const codes = normalized
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean);
+      const body = { discount: codes.join(',') };
 
       if (sectionIds.length) {
         body.sections = sectionIds;
@@ -385,16 +386,27 @@
         throw new Error(data.description || data.message || `Unable to apply discount ${normalized}`);
       }
 
-      const match = (data.discount_codes || []).find(
-        (entry) => String(entry.code || '').toUpperCase() === normalized.toUpperCase()
+      const discountCodes = data.discount_codes || [];
+      const applicableCodes = codes.filter((entry) =>
+        discountCodes.some(
+          (item) => String(item.code || '').toUpperCase() === entry.toUpperCase() && item.applicable === true
+        )
       );
 
-      // Code is on the cart but Shopify rules reject it for these line items
-      if (!match || match.applicable !== true || Number(data.total_discount || 0) <= 0) {
+      // Multi-code: OK if at least one code applies to current lines
+      if (codes.length > 1) {
+        if (!applicableCodes.length && Number(data.total_discount || 0) <= 0) {
+          console.warn('Discount codes present but none applicable to current cart lines', discountCodes);
+        }
+        return data;
+      }
+
+      if (!applicableCodes.length || Number(data.total_discount || 0) <= 0) {
         throw new Error(
           `"${normalized}" is on the cart but not applicable (Shopify returned applicable:false). ` +
-            'Fix Admin → Discounts → this code: set Purchase type to “One-time purchase” or “Both” ' +
-            '(this store has no selling plans), allow these products/collections, remove min. requirements / customer limits, and ensure usage limit is not exhausted.'
+            'For Subscribe codes, lines need a subscription selling plan. ' +
+            'For One-time codes, lines must be one-time (no selling plan). ' +
+            'Publish selling plans to the Online Store channel and match Admin purchase-type settings.'
         );
       }
 
@@ -593,6 +605,8 @@
       this.discountPercent = Number(section.dataset.discountPercent || 0);
       this.discountCode = (section.dataset.subscribeDiscountCode || '').trim();
       this.onetimeDiscountCode = (section.dataset.onetimeDiscountCode || '').trim();
+      this.subscribeSellingPlanId = (section.dataset.subscribeSellingPlan || '').trim();
+      this.onetimeSellingPlanId = (section.dataset.onetimeSellingPlan || '').trim();
       this.buttonLabel = section.dataset.buttonLabel || 'Add to cart';
       this.subscribeLabel = section.dataset.subscribeLabel || 'Subscribe';
       this.onetimeLabel = section.dataset.onetimeLabel || 'One-time';
@@ -903,6 +917,12 @@
           'properties[_purchase_option]',
           isSubscribe ? 'Autoship & Save' : 'One-time purchase'
         );
+        const sellingPlanId = isSubscribe
+          ? this.subscribeSellingPlanId
+          : this.onetimeSellingPlanId;
+        if (sellingPlanId) {
+          formData.append('selling_plan', sellingPlanId);
+        }
         formData.append('sections', sectionIds.join(','));
         formData.append('sections_url', window.location.pathname);
         cart?.setActiveElement?.(document.activeElement);
@@ -921,15 +941,19 @@
           throw new Error(addData.description || addData.message || 'Unable to add to cart');
         }
 
-        let uiState = addData;
+        if (isSubscribe && !this.subscribeSellingPlanId) {
+          console.warn(
+            'Subscribe ATC: no selling plan ID found. Publish a subscription selling plan to the Online Store, or set “Subscribe selling plan ID” in the section.'
+          );
+        }
+
         const discountResult = await this.syncPurchaseDiscount({
-          isSubscribe,
           subscribeCode: this.discountCode,
           onetimeCode: this.onetimeDiscountCode,
           sectionIds,
           fallbackState: addData,
         });
-        uiState = discountResult.uiState;
+        let uiState = discountResult.uiState;
 
         this.renderCartContents(uiState, cartDrawer, cartNotification, this.atc);
         if (uiState?.total_discount > 0) this.paintDiscountFromCart(uiState);

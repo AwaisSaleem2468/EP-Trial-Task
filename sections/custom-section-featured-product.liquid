@@ -2,11 +2,36 @@
   assign product = section.settings.product
   assign discount_percent = section.settings.discount_percent | default: 25
   assign discount_code = section.settings.subscribe_discount_code | default: 'SUBSCRIBE25'
-  assign onetime_discount_code = section.settings.onetime_discount_code | default: ''
+  assign onetime_discount_code = section.settings.onetime_discount_code | default: 'ONETIME'
   assign default_mode = section.settings.default_mode | default: 'subscribe'
   assign format_option_name = section.settings.format_option_name | default: 'Format' | strip | downcase
   assign flavor_option_name = section.settings.flavor_option_name | default: 'Flavor' | strip | downcase
   assign size_option_name = section.settings.size_option_name | default: 'Size' | strip | downcase
+
+  assign subscribe_selling_plan_id = section.settings.subscribe_selling_plan_id | strip
+  assign onetime_selling_plan_id = section.settings.onetime_selling_plan_id | strip
+
+  if product != blank
+    for group in product.selling_plan_groups
+      for plan in group.selling_plans
+        assign plan_name = plan.name | downcase
+        if subscribe_selling_plan_id == blank
+          if plan_name contains 'subscribe' or plan_name contains 'subscription' or plan_name contains 'autoship' or plan_name contains 'monthly'
+            assign subscribe_selling_plan_id = plan.id
+          endif
+        endif
+        if onetime_selling_plan_id == blank
+          if plan_name contains 'one-time' or plan_name contains 'one time' or plan_name contains 'onetime'
+            assign onetime_selling_plan_id = plan.id
+          endif
+        endif
+      endfor
+    endfor
+
+    if subscribe_selling_plan_id == blank and product.selling_plan_groups.size > 0
+      assign subscribe_selling_plan_id = product.selling_plan_groups.first.selling_plans.first.id
+    endif
+  endif
 
   assign current_variant = product.selected_or_first_available_variant
   if product == blank
@@ -120,6 +145,8 @@
   data-discount-percent="{{ discount_percent }}"
   data-subscribe-discount-code="{{ discount_code | escape }}"
   data-onetime-discount-code="{{ onetime_discount_code | escape }}"
+  data-subscribe-selling-plan="{{ subscribe_selling_plan_id | escape }}"
+  data-onetime-selling-plan="{{ onetime_selling_plan_id | escape }}"
   data-button-label="{{ section.settings.button_label | escape }}"
   data-subscribe-label="{{ section.settings.subscribe_label | escape }}"
   data-onetime-label="{{ section.settings.onetime_label | escape }}"
@@ -741,17 +768,30 @@
       "id": "subscribe_discount_code",
       "label": "Subscribe discount code",
       "default": "SUBSCRIBE25",
-      "info": "Applied when Autoship is selected. Admin → Discounts → code with Purchase type One-time or Both."
+      "info": "Purchase type: Subscription. Keep this code on the cart with the one-time code."
     },
     {
       "type": "text",
       "id": "onetime_discount_code",
       "label": "One-time discount code",
-      "info": "Optional. Applied when One-time is selected (replaces the subscribe code on the whole cart). Leave blank for full base price on one-time."
+      "default": "ONETIME",
+      "info": "Purchase type: One-time purchase. Both codes stay on the cart; each applies only to matching lines."
+    },
+    {
+      "type": "text",
+      "id": "subscribe_selling_plan_id",
+      "label": "Subscribe selling plan ID",
+      "info": "Required for per-line subscribe pricing. Find it on the product’s selling plan in Admin, or leave blank to auto-detect from the product name."
+    },
+    {
+      "type": "text",
+      "id": "onetime_selling_plan_id",
+      "label": "One-time selling plan ID",
+      "info": "Optional. Leave blank to add true one-time lines (no selling plan)."
     },
     {
       "type": "paragraph",
-      "content": "Note: Shopify discount codes are cart-level. The active code applies to every line in the cart. Mixing Subscribe and One-time in one cart will use whichever code was applied last."
+      "content": "Both discount codes are applied together. Subscribe adds use the subscribe selling plan; one-time adds do not. Publish selling plans to the Online Store channel or mixed carts will keep flipping prices."
     },
     {
       "type": "select",
