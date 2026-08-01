@@ -1108,16 +1108,18 @@ body{
     letter-spacing: 0;
     text-transform: uppercase;
     margin-bottom: 5px;
+  font-family: var(--font-heading-family);
 }
 
 .custom-fp__size-title {
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--fp-text, #1a1a1a);
+
 }
 
 .custom-fp__size-servings {
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   color: var(--fp-muted, #6b6b6b);
   font-weight: 600;
 }
