@@ -236,9 +236,9 @@
       spinner?.classList.remove('hidden');
 
       try {
-        if (isSubscribe && !discountCode) {
+        if (isSubscribe && !sellingPlanId && !discountCode) {
           throw new Error(
-            'Add discount code SUBSCRIBE25 in the switch block setting “Subscribe discount code”'
+            'Set Subscribe selling plan ID on the switch block, or add discount code SUBSCRIBE25'
           );
         }
 
@@ -287,6 +287,7 @@
           subscribeCode: discountCode,
           sectionIds,
           fallbackState: addData,
+          usedSellingPlan: Boolean(sellingPlanId),
         });
 
         this.renderCartContents(discountResult.uiState, cartDrawer, cartNotification, button);
@@ -323,22 +324,53 @@
     }
 
     /**
-     * Mixed cart support (no clearing):
-     * - Subscribe add → attach selling plan + apply SUBSCRIBE25
-     * - One-time add → no selling plan, do NOT clear discounts
-     * SUBSCRIBE25 must be Admin purchase type "Subscription" so only plan lines get 25% off.
+     * Mixed cart pricing:
+     * - Subscribe + selling plan → plan already discounts from base ($38 → $28.50).
+     *   Do NOT also apply SUBSCRIBE25 (that stacks a second 25% → $21.38).
+     * - Subscribe without selling plan → fall back to discount code only.
+     * - One-time → no selling plan; leave cart discounts alone (do not re-apply code).
      */
-    async syncPurchaseDiscount({ isSubscribe, subscribeCode, sectionIds, fallbackState }) {
+    async syncPurchaseDiscount({
+      isSubscribe,
+      subscribeCode,
+      sectionIds,
+      fallbackState,
+      usedSellingPlan = false,
+    }) {
       let uiState = fallbackState;
       let warning = '';
       const code = String(subscribeCode || '').trim();
       const root = window.Shopify?.routes?.root || '/';
 
       if (isSubscribe) {
-        if (!code) {
-          warning = 'Add subscribe discount code (e.g. SUBSCRIBE25) in section settings.';
+        // Selling plan owns the 25% off base price — strip leftover codes that would stack.
+        if (usedSellingPlan) {
+          try {
+            const cartResponse = await fetch(`${root}cart.js`, { credentials: 'same-origin' });
+            const cart = await cartResponse.json();
+            const hasSubscribeCode = (cart.discount_codes || []).some((entry) => {
+              const entryCode = String(entry.code || '').toUpperCase();
+              return code
+                ? entryCode === code.toUpperCase()
+                : entryCode === 'SUBSCRIBE25' || entry.applicable;
+            });
+
+            if (hasSubscribeCode) {
+              uiState = await this.clearDiscountCodes(sectionIds);
+              this.syncCheckoutDiscount('');
+            }
+          } catch (error) {
+            console.warn(error);
+          }
           return { uiState, warning };
         }
+
+        if (!code) {
+          warning =
+            'Set a Subscribe selling plan ID (preferred) or a subscribe discount code in section settings.';
+          return { uiState, warning };
+        }
+
         try {
           uiState = await this.applyDiscountCode(code, sectionIds);
           this.syncCheckoutDiscount(code);
@@ -350,29 +382,8 @@
         return { uiState, warning };
       }
 
-      // One-time: never clear the cart discount.
-      // If subscribe lines already exist, re-apply SUBSCRIBE25 so it stays on those lines only.
-      try {
-        const cartResponse = await fetch(`${root}cart.js`, { credentials: 'same-origin' });
-        const cart = await cartResponse.json();
-        const hasSubscribeLine = (cart.items || []).some(
-          (item) =>
-            item.selling_plan_allocation ||
-            item.selling_plan_allocation != null ||
-            /subscribe|autoship/i.test(String(item.properties?._purchase_option || ''))
-        );
-        const hasSubscribeCode = (cart.discount_codes || []).some(
-          (entry) => String(entry.code || '').toUpperCase() === code.toUpperCase()
-        );
-
-        if (code && (hasSubscribeLine || hasSubscribeCode)) {
-          uiState = await this.applyDiscountCode(code, sectionIds);
-          this.syncCheckoutDiscount(code);
-        }
-      } catch (error) {
-        console.warn(error);
-      }
-
+      // One-time: do not clear or re-apply codes. Re-applying SUBSCRIBE25 on top of a
+      // selling-plan line would double-discount subscription items in a mixed cart.
       return { uiState, warning };
     }
 
@@ -912,8 +923,10 @@
       spinner?.classList.remove('hidden');
 
       try {
-        if (isSubscribe && !this.discountCode) {
-          throw new Error('Add subscribe discount code in section settings');
+        if (isSubscribe && !this.subscribeSellingPlanId && !this.discountCode) {
+          throw new Error(
+            'Set Subscribe selling plan ID in the section, or add a subscribe discount code'
+          );
         }
 
         const sectionIds = cart?.getSectionsToRender
@@ -959,6 +972,7 @@
           subscribeCode: this.discountCode,
           sectionIds,
           fallbackState: addData,
+          usedSellingPlan: Boolean(isSubscribe && this.subscribeSellingPlanId),
         });
         const uiState = discountResult.uiState;
 
